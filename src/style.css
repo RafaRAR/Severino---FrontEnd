@@ -4,14 +4,35 @@
 
 @layer base {
   :root {
-    @apply bg-slate-950 text-slate-50 antialiased;
+    --brand-navy: #1a2b48;
+    --brand-orange: #ff8c00;
+    --brand-ice: #f8f9fa;
   }
 
   body {
-    @apply min-h-screen;
+    @apply bg-brand-ice text-brand-navy font-body;
   }
 
-  #app {
-    @apply min-h-screen;
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    @apply font-title;
+  }
+}
+
+@layer components {
+  .input-base {
+    @apply w-full px-4 py-2 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-brand-orange/50 shadow-sm;
+  }
+
+  .btn-primary {
+    @apply bg-brand-orange text-white font-bold py-2 px-4 rounded-lg shadow-sm hover:bg-opacity-90 transition-colors;
+  }
+
+  .btn-secondary {
+    @apply bg-brand-navy text-white font-bold py-2 px-4 rounded-lg shadow-sm hover:bg-opacity-90 transition-colors;
   }
 }
