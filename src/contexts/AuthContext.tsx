@@ -25,11 +25,13 @@ export function AuthProvider({ children }: AuthProviderProps) {
     const storedToken = localStorage.getItem(TOKEN_STORAGE_KEY)
     const storedUser = localStorage.getItem('severino_user')
 
-    if (storedToken && storedUser) {
+    if (storedToken) {
       try {
-        const parsedUser = JSON.parse(storedUser)
         setToken(storedToken)
-        setUser(parsedUser)
+        if (storedUser) {
+          const parsedUser = JSON.parse(storedUser)
+          setUser(parsedUser)
+        }
       } catch {
         localStorage.removeItem(TOKEN_STORAGE_KEY)
         localStorage.removeItem('severino_user')
@@ -66,7 +68,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
       value={{
         user,
         token,
-        isAuthenticated: !!user && !!token,
+        isAuthenticated: !!token,
         login: handleLogin,
         register: handleRegister,
         logout,

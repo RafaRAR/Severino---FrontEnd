@@ -47,9 +47,9 @@ export function RegisterPage({ onBackToLogin }: RegisterPageProps) {
     setSubmitError(null)
     try {
       await registerAccount({
-        name: data.name,
+        nome: data.name,
         email: data.email,
-        password: data.password,
+        senha: data.password,
       })
     } catch (error) {
       const message =

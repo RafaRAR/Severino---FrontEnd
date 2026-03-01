@@ -40,7 +40,7 @@ export function LoginPage({ onGoToRegister }: LoginPageProps) {
     try {
       await login({
         email: data.email,
-        password: data.password,
+        senha: data.password,
       })
     } catch (error) {
       const message =
