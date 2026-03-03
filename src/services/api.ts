@@ -131,12 +131,7 @@ function toErrorMessage(error: unknown) {
 
 export async function login(payload: LoginPayload): Promise<AuthResponse> {
   try {
-    const { data } = await api.post('/api/Usuario/login', null, {
-      params: {
-        email: payload.email,
-        senha: payload.senha,
-      },
-    })
+    const { data } = await api.post('/api/Usuario/login', payload)
 
     return normalizeAuthResponse(data, { email: payload.email })
   } catch (error) {
@@ -146,13 +141,7 @@ export async function login(payload: LoginPayload): Promise<AuthResponse> {
 
 export async function register(payload: RegisterPayload): Promise<AuthResponse> {
   try {
-    const { data } = await api.post('/api/Usuario/registrar', null, {
-      params: {
-        nome: payload.nome,
-        email: payload.email,
-        senha: payload.senha,
-      },
-    })
+    const { data } = await api.post('/api/Usuario/registrar', payload)
 
     return normalizeAuthResponse(data, { email: payload.email, nome: payload.nome })
   } catch (error) {
