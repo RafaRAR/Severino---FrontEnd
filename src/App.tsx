@@ -19,8 +19,7 @@ export function App() {
             Olá, {displayName} 👋
           </h1>
           <p className="mt-2 text-sm text-slate-400">
-            Você está autenticado no <span className="text-sky-400">Severino</span>. A partir daqui
-            entra o dashboard/marketplace do seu TCC.
+            Você está autenticado no <span className="text-sky-400">Severino</span>. 
           </p>
 
           <div className="mt-6 flex items-center justify-between rounded-xl border border-slate-700 bg-slate-900/60 px-4 py-3 text-sm">
