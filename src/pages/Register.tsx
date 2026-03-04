@@ -10,7 +10,12 @@ import { useAuth } from '../hooks/useAuth'
 const registerSchema = z
   .object({
     name: z.string().min(2, 'Informe seu nome completo'),
-    email: z.string().min(1, 'Informe o e-mail').email('Informe um e-mail válido'),
+    email: z.string().min(1, 'Informe o e-mail').email('Informe um e-mail válido')
+      .refine((email) => {
+        const [user, domain] = email.split('@')
+        // Validação simples para evitar e-mails muito curtos como a@a.com
+        return user && user.length >= 2 && domain && domain.length >= 3 && domain.includes('.')
+      }, 'O e-mail parece inválido ou muito curto'),
     password: z
       .string()
       .min(8, 'A senha deve ter pelo menos 8 caracteres')
@@ -135,4 +140,3 @@ export function RegisterPage({ onBackToLogin }: RegisterPageProps) {
     </AuthLayout>
   )
 }
-
