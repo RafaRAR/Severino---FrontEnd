@@ -5,4 +5,8 @@ export interface Anuncio {
   endereco: string;
   contato: string;
   dono: string;
+  urgente?: boolean;
+  categoria?: string;
+  comentarios?: number;
+  foto?: string;
 }
