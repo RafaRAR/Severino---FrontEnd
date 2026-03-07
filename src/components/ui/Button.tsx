@@ -1,7 +1,7 @@
 import type { ButtonHTMLAttributes, ReactNode } from 'react'
 import { Loader2 } from 'lucide-react'
 
-type Variant = 'primary' | 'ghost'
+type Variant = 'primary' | 'ghost' | 'brand'
 
 interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: Variant
@@ -25,6 +25,8 @@ export function Button({
       'bg-sky-500 text-white hover:bg-sky-400 active:bg-sky-600 shadow-sm shadow-sky-900/40',
     ghost:
       'bg-transparent text-sky-400 hover:bg-slate-800/80 border border-slate-700',
+    brand:
+      'bg-brand-orange text-white hover:bg-brand-orange/90 active:bg-brand-orange/80 shadow-md focus-visible:ring-brand-orange/50',
   }
 
   return (

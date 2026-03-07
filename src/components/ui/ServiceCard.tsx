@@ -1,6 +1,6 @@
 import React from 'react';
 import type { Anuncio } from '../../types';
-import { Image, MapPin, MessageSquare, Share2, AlertCircle, Phone } from 'lucide-react';
+import { Image, MapPin, MessageSquare, Share2, AlertCircle } from 'lucide-react';
 
 interface ServiceCardProps {
   anuncio: Anuncio;

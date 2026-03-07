@@ -23,6 +23,40 @@ export interface AuthUser {
   id: string
   name: string
   email: string
+  /** Indica se o perfil está completo (cpf, celular, endereço preenchidos) */
+  profileComplete?: boolean
+  cpf?: string
+  celular?: string
+  tipoPerfil?: 'cliente' | 'prestador'
+  categoria?: string
+  cep?: string
+  cidade?: string
+  bairro?: string
+  estado?: string
+  numero?: string
+  complemento?: string
+}
+
+export interface CepResponse {
+  localidade?: string
+  bairro?: string
+  uf?: string
+  cidade?: string
+  estado?: string
+  erro?: boolean
+}
+
+export interface CompletarPerfilPayload {
+  tipoPerfil: 'cliente' | 'prestador'
+  cpf: string
+  celular: string
+  cep: string
+  cidade: string
+  bairro: string
+  estado: string
+  numero: string
+  complemento?: string
+  categoria?: string
 }
 
 export interface AuthResponse {
@@ -144,6 +178,61 @@ export async function register(payload: RegisterPayload): Promise<AuthResponse> 
     const { data } = await api.post('/api/Usuario/registrar', payload)
 
     return normalizeAuthResponse(data, { email: payload.email, nome: payload.nome })
+  } catch (error) {
+    throw new Error(toErrorMessage(error))
+  }
+}
+
+export async function fetchCep(cep: string): Promise<CepResponse> {
+  const digits = cep.replace(/\D/g, '')
+  if (digits.length !== 8) {
+    throw new Error('CEP inválido.')
+  }
+
+  try {
+    const { data } = await api.get<CepResponse>(`/api/cep/${digits}`)
+    if (data && typeof data === 'object' && (data as Record<string, unknown>).erro === true) {
+      throw new Error('CEP não encontrado.')
+    }
+    const res = data as CepResponse
+    return {
+      localidade: res.localidade ?? res.cidade,
+      bairro: res.bairro,
+      uf: res.uf ?? res.estado,
+    }
+  } catch (error) {
+    if (axios.isAxiosError(error) && (error.response?.status === 404 || error.response?.status === 400)) {
+      try {
+        const viaCep = await axios.get<CepResponse>(`https://viacep.com.br/ws/${digits}/json/`)
+        const vc = viaCep.data as CepResponse & { erro?: boolean }
+        if (vc.erro) throw new Error('CEP não encontrado.')
+        return {
+          localidade: vc.localidade ?? vc.cidade,
+          bairro: vc.bairro,
+          uf: vc.uf ?? vc.estado,
+        }
+      } catch {
+        throw new Error('CEP não encontrado.')
+      }
+    }
+    if (error instanceof Error) throw error
+    throw new Error('Erro ao buscar CEP.')
+  }
+}
+
+export async function getPerfil(): Promise<AuthUser | null> {
+  try {
+    const { data } = await api.get<AuthUser>('/api/Usuario/perfil')
+    return data ?? null
+  } catch {
+    return null
+  }
+}
+
+export async function completarPerfil(payload: CompletarPerfilPayload): Promise<AuthUser> {
+  try {
+    const { data } = await api.put<AuthUser>('/api/Usuario/perfil', payload)
+    return data
   } catch (error) {
     throw new Error(toErrorMessage(error))
   }
