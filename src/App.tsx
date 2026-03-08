@@ -1,65 +1,80 @@
-import { useState, useEffect } from 'react'
-import { useAuth } from './hooks/useAuth'
-import { LoginPage } from './pages/Login'
-import { RegisterPage } from './pages/Register'
-import { Home } from './pages/Home'
-import { CompleteProfileModal } from './components/CompleteProfileModal'
-import { getPerfil } from './services/api'
-
-type Screen = 'login' | 'register'
+import React from 'react';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { useAuth } from './hooks/useAuth';
+import { LoginPage } from './pages/Login';
+import { RegisterPage } from './pages/Register';
+import { Home } from './pages/Home';
+import { VerifyEmail } from './pages/VerifyEmail';
+import { ForgotPassword } from './pages/ForgotPassword';
+import { ResetPassword } from './pages/ResetPassword';
+import { CompleteProfileModal } from './components/CompleteProfileModal';
+import { useEffect, useState } from 'react';
+import { getPerfil } from './services/api';
 
 function isProfileComplete(user: { profileComplete?: boolean; cpf?: string; tipoPerfil?: string } | null): boolean {
-  if (!user) return false
-  if (user.profileComplete === true) return true
-  return !!(user.cpf && user.tipoPerfil)
+  if (!user) return false;
+  if (user.profileComplete === true) return true;
+  return !!(user.cpf && user.tipoPerfil);
+}
+
+function PrivateRoute({ children }: { children: React.ReactNode }) {
+  const { isAuthenticated } = useAuth();
+  return isAuthenticated ? children : <Navigate to="/login" />;
 }
 
 export function App() {
-  const { isAuthenticated, user, updateUser } = useAuth()
-  const [screen, setScreen] = useState<Screen>('login')
-  const [showCompleteProfile, setShowCompleteProfile] = useState(false)
+  const { isAuthenticated, user, updateUser } = useAuth();
+  const [showCompleteProfile, setShowCompleteProfile] = useState(false);
 
   useEffect(() => {
     if (!isAuthenticated) {
-      setShowCompleteProfile(false)
-      return
+      setShowCompleteProfile(false);
+      return;
     }
     if (isProfileComplete(user)) {
-      setShowCompleteProfile(false)
-      return
+      setShowCompleteProfile(false);
+      return;
     }
     getPerfil()
       .then((fullUser) => {
-        const complete = fullUser ? isProfileComplete(fullUser) : false
-        setShowCompleteProfile(!complete)
+        const complete = fullUser ? isProfileComplete(fullUser) : false;
+        if (complete && fullUser) {
+          updateUser(fullUser)
+        }
+        setShowCompleteProfile(!complete);
       })
       .catch(() => {
-        setShowCompleteProfile(true)
-      })
-  }, [isAuthenticated, user])
+        setShowCompleteProfile(true);
+      });
+  }, [isAuthenticated, user, updateUser]);
 
   function handleProfileComplete(updatedUser: Parameters<typeof updateUser>[0]) {
-    updateUser(updatedUser)
-    setShowCompleteProfile(false)
+    updateUser(updatedUser);
+    setShowCompleteProfile(false);
   }
 
-  if (isAuthenticated) {
-    return (
-      <>
-        <Home />
-        <CompleteProfileModal
-          isOpen={showCompleteProfile}
-          onClose={() => setShowCompleteProfile(false)}
-          onComplete={handleProfileComplete}
+  return (
+    <BrowserRouter>
+      <Routes>
+        <Route path="/login" element={<LoginPage />} />
+        <Route path="/registrar" element={<RegisterPage />} />
+        <Route path="/verificar-email" element={<VerifyEmail />} />
+        <Route path="/esqueci-senha" element={<ForgotPassword />} />
+        <Route path="/resetar-senha" element={<ResetPassword />} />
+        <Route
+          path="/"
+          element={
+            <PrivateRoute>
+              <Home />
+            </PrivateRoute>
+          }
         />
-      </>
-    )
-  }
-
-  if (screen === 'register') {
-    return <RegisterPage onBackToLogin={() => setScreen('login')} />
-  }
-
-  return <LoginPage onGoToRegister={() => setScreen('register')} />
+      </Routes>
+      <CompleteProfileModal
+        isOpen={showCompleteProfile && isAuthenticated}
+        onClose={() => setShowCompleteProfile(false)}
+      />
+    </BrowserRouter>
+  );
 }
 

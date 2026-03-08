@@ -20,11 +20,11 @@ export type CategoriaPrestador = (typeof CATEGORIAS_PRESTADOR)[number]
 interface SelectProps extends Omit<SelectHTMLAttributes<HTMLSelectElement>, 'value'> {
   label: string
   error?: string
-  options: readonly string[]
+  options: readonly { value: string; label: string }[] | readonly string[]
   value?: string
 }
 
-function Select(
+function SelectBase(
   { label, error, options, className = '', id, ...props }: SelectProps,
   ref: Ref<HTMLSelectElement>,
 ) {
@@ -57,12 +57,16 @@ function Select(
           onFocus={() => setIsOpen(true)}
           onBlur={() => setTimeout(() => setIsOpen(false), 150)}
         >
-          <option value="">Selecione uma categoria</option>
-          {options.map((opt) => (
-            <option key={opt} value={opt}>
-              {opt}
-            </option>
-          ))}
+          <option value="">Selecione uma opção</option>
+          {options.map((opt) => {
+            const value = typeof opt === 'string' ? opt : opt.value
+            const label = typeof opt === 'string' ? opt : opt.label
+            return (
+              <option key={value} value={value}>
+                {label}
+              </option>
+            )
+          })}
         </select>
         <ChevronDown
           className={`pointer-events-none absolute right-3 top-1/2 size-5 -translate-y-1/2 text-brand-navy/70 transition ${isOpen ? 'rotate-180' : ''}`}
@@ -73,4 +77,4 @@ function Select(
   )
 }
 
-export const ForwardedSelect = forwardRef(Select)
+export const Select = forwardRef(SelectBase)

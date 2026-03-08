@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { z } from 'zod'
 import { zodResolver } from '@hookform/resolvers/zod'
+import { useNavigate } from 'react-router-dom'
 import { AuthLayout } from '../components/layout/AuthLayout'
 import { Input } from '../components/ui/Input'
 import { Button } from '../components/ui/Button'
@@ -31,12 +32,9 @@ const registerSchema = z
 
 type RegisterFormData = z.infer<typeof registerSchema>
 
-interface RegisterPageProps {
-  onBackToLogin: () => void
-}
-
-export function RegisterPage({ onBackToLogin }: RegisterPageProps) {
+export function RegisterPage() {
   const { register: registerAccount } = useAuth()
+  const navigate = useNavigate()
   const [submitError, setSubmitError] = useState<string | null>(null)
 
   const {
@@ -56,6 +54,7 @@ export function RegisterPage({ onBackToLogin }: RegisterPageProps) {
         email: data.email,
         senha: data.password,
       })
+      navigate('/verificar-email', { state: { email: data.email } })
     } catch (error) {
       const message =
         error instanceof Error ? error.message : 'Não foi possível criar sua conta. Tente novamente.'
@@ -130,7 +129,7 @@ export function RegisterPage({ onBackToLogin }: RegisterPageProps) {
           <span>Já tem uma conta?</span>
           <button
             type="button"
-            onClick={onBackToLogin}
+            onClick={() => navigate('/login')}
             className="font-medium text-sky-400 underline-offset-4 hover:text-sky-300 hover:underline"
           >
             Entrar

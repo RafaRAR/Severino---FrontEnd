@@ -173,11 +173,9 @@ export async function login(payload: LoginPayload): Promise<AuthResponse> {
   }
 }
 
-export async function register(payload: RegisterPayload): Promise<AuthResponse> {
+export async function register(payload: RegisterPayload): Promise<void> {
   try {
-    const { data } = await api.post('/api/Usuario/registrar', payload)
-
-    return normalizeAuthResponse(data, { email: payload.email, nome: payload.nome })
+    await api.post('/api/Usuario/registrar', payload)
   } catch (error) {
     throw new Error(toErrorMessage(error))
   }
@@ -229,10 +227,104 @@ export async function getPerfil(): Promise<AuthUser | null> {
   }
 }
 
+export interface VerificarEmailPayload {
+  email: string;
+  codigo: string;
+}
+
+export interface SolicitarVerificacaoPayload {
+  email: string;
+}
+
+export interface SolicitarResetPayload {
+  email: string;
+}
+
+export interface ResetarSenhaPayload {
+  email: string;
+  codigo: string;
+  novaSenha: string;
+}
+
+export async function verificarEmail(payload: VerificarEmailPayload): Promise<AuthResponse> {
+  try {
+    const { data } = await api.post('/api/Usuario/verificar', payload)
+    return normalizeAuthResponse(data, { email: payload.email })
+  } catch (error) {
+    throw new Error(toErrorMessage(error))
+  }
+}
+
+export async function solicitarVerificacao(payload: SolicitarVerificacaoPayload): Promise<void> {
+  try {
+    await api.post('/api/Usuario/solicitarverificacao', payload)
+  } catch (error) {
+    throw new Error(toErrorMessage(error))
+  }
+}
+
+export async function solicitarReset(payload: SolicitarResetPayload): Promise<void> {
+  try {
+    await api.post('/api/Usuario/solicitarreset', payload)
+  } catch (error) {
+    throw new Error(toErrorMessage(error))
+  }
+}
+
+export async function resetarSenha(payload: ResetarSenhaPayload): Promise<void> {
+  try {
+    await api.post('/api/Usuario/resetar', payload)
+  } catch (error) {
+    throw new Error(toErrorMessage(error))
+  }
+}
+
 export async function completarPerfil(payload: CompletarPerfilPayload): Promise<AuthUser> {
   try {
     const { data } = await api.put<AuthUser>('/api/Usuario/perfil', payload)
     return data
+  } catch (error) {
+    throw new Error(toErrorMessage(error))
+  }
+}
+
+export interface CadastroPayload {
+  nome: string
+  usuarioId: number
+  cpf: string
+  dataNascimento: string
+  contato: string
+  cep: string
+  endereco: string
+  role: string
+}
+
+export async function cadastrar(
+  usuarioId: string,
+  payload: CadastroPayload,
+): Promise<void> {
+  try {
+    await api.post(`/api/cadastro/cadastrar/${usuarioId}`, payload)
+  } catch (error) {
+    throw new Error(toErrorMessage(error))
+  }
+}
+
+export async function getCadastro(usuarioId: string): Promise<CadastroPayload> {
+  try {
+    const { data } = await api.get(`/api/cadastro/getcadastro/${usuarioId}`)
+    return data
+  } catch (error) {
+    throw new Error(toErrorMessage(error))
+  }
+}
+
+export async function updateCadastro(
+  usuarioId: string,
+  payload: Partial<Omit<CadastroPayload, 'usuarioId'>>,
+): Promise<void> {
+  try {
+    await api.put(`/api/cadastro/updatecadastro/${usuarioId}`, payload)
   } catch (error) {
     throw new Error(toErrorMessage(error))
   }

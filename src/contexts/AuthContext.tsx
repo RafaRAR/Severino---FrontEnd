@@ -6,7 +6,8 @@ interface AuthContextValue {
   user: AuthResponse['user'] | null
   token: string | null
   isAuthenticated: boolean
-  login: (payload: LoginPayload) => Promise<void>
+  login: (token: string, user: AuthUser) => void
+  loginWithCredentials: (payload: LoginPayload) => Promise<void>
   register: (payload: RegisterPayload) => Promise<void>
   logout: () => void
   /** Atualiza o usuário (ex.: após completar perfil) */
@@ -48,14 +49,18 @@ export function AuthProvider({ children }: AuthProviderProps) {
     localStorage.setItem('severino_user', JSON.stringify(auth.user))
   }
 
-  async function handleLogin(payload: LoginPayload) {
+  function login(token: string, user: AuthUser) {
+    persistAuth({ token, user })
+  }
+
+  async function loginWithCredentials(payload: LoginPayload) {
     const auth = await loginRequest(payload)
     persistAuth(auth)
   }
 
   async function handleRegister(payload: RegisterPayload) {
-    const auth = await registerRequest(payload)
-    persistAuth(auth)
+    await registerRequest(payload)
+    // Não faz mais o login automático
   }
 
   function logout() {
@@ -72,11 +77,12 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
   return (
     <AuthContext.Provider
-        value={{
+      value={{
         user,
         token,
         isAuthenticated: !!token,
-        login: handleLogin,
+        login,
+        loginWithCredentials,
         register: handleRegister,
         logout,
         updateUser,

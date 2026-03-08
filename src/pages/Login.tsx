@@ -1,31 +1,30 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useForm } from 'react-hook-form'
 import { z } from 'zod'
 import { zodResolver } from '@hookform/resolvers/zod'
+import { useNavigate, useLocation } from 'react-router-dom'
 import { AuthLayout } from '../components/layout/AuthLayout'
 import { Input } from '../components/ui/Input'
 import { Button } from '../components/ui/Button'
 import { useAuth } from '../hooks/useAuth'
+import { Link } from 'react-router-dom'
 
 const loginSchema = z.object({
   email: z.string().min(1, 'Informe o e-mail').email('Informe um e-mail válido'),
   password: z
     .string()
-    .min(8, 'A senha deve ter pelo menos 8 caracteres')
-    .regex(/[A-Z]/, 'Use pelo menos uma letra maiúscula')
-    .regex(/[a-z]/, 'Use pelo menos uma letra minúscula')
-    .regex(/[0-9]/, 'Use pelo menos um número'),
+    .min(8, 'A senha deve ter pelo menos 8 caracteres'),
 })
 
 type LoginFormData = z.infer<typeof loginSchema>
 
-interface LoginPageProps {
-  onGoToRegister: () => void
-}
-
-export function LoginPage({ onGoToRegister }: LoginPageProps) {
-  const { login } = useAuth()
+export function LoginPage() {
+  const { loginWithCredentials, isAuthenticated } = useAuth()
+  const navigate = useNavigate()
+  const location = useLocation()
   const [submitError, setSubmitError] = useState<string | null>(null)
+  const [successMessage, setSuccessMessage] = useState<string | null>(location.state?.successMessage || null)
+
   const {
     register,
     handleSubmit,
@@ -35,13 +34,21 @@ export function LoginPage({ onGoToRegister }: LoginPageProps) {
     mode: 'onChange',
   })
 
+  useEffect(() => {
+    if (isAuthenticated) {
+      navigate('/')
+    }
+  }, [isAuthenticated, navigate])
+
   async function onSubmit(data: LoginFormData) {
     setSubmitError(null)
+    setSuccessMessage(null)
     try {
-      await login({
+      await loginWithCredentials({
         email: data.email,
         senha: data.password,
       })
+      navigate('/')
     } catch (error) {
       const message =
         error instanceof Error ? error.message : 'Não foi possível entrar. Tente novamente.'
@@ -58,6 +65,11 @@ export function LoginPage({ onGoToRegister }: LoginPageProps) {
         {submitError && (
           <div className="rounded-lg border border-red-500/40 bg-red-500/10 px-3 py-2 text-xs text-red-300">
             {submitError}
+          </div>
+        )}
+        {successMessage && (
+          <div className="rounded-lg border border-green-500/40 bg-green-500/10 px-3 py-2 text-xs text-green-300">
+            {successMessage}
           </div>
         )}
 
@@ -79,11 +91,12 @@ export function LoginPage({ onGoToRegister }: LoginPageProps) {
             {...register('password')}
             error={errors.password?.message}
           />
-
-          <p className="text-xs text-slate-500">
-            Use uma senha forte com letras maiúsculas, minúsculas e números para garantir a
-            segurança da sua conta.
-          </p>
+        </div>
+        
+        <div className="text-right text-sm">
+          <Link to="/esqueci-senha" className="font-medium text-brand-orange hover:underline">
+            Esqueceu a senha?
+          </Link>
         </div>
 
         <Button
@@ -99,7 +112,7 @@ export function LoginPage({ onGoToRegister }: LoginPageProps) {
           <span>Ainda não tem conta?</span>
           <button
             type="button"
-            onClick={onGoToRegister}
+            onClick={() => navigate('/registrar')}
             className="font-medium text-sky-400 underline-offset-4 hover:text-sky-300 hover:underline"
           >
             Criar conta
