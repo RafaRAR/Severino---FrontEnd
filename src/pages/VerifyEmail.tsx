@@ -28,6 +28,7 @@ export function VerifyEmail() {
     setIsLoading(true)
     try {
       const { token, user } = await verificarEmail({ email, codigo: code })
+      user.name = location.state?.name;
       login(token, user)
       navigate('/')
     } catch (err) {

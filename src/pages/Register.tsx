@@ -54,7 +54,7 @@ export function RegisterPage() {
         email: data.email,
         senha: data.password,
       })
-      navigate('/verificar-email', { state: { email: data.email } })
+      navigate('/verificar-email', { state: { email: data.email, name: data.name } })
     } catch (error) {
       const message =
         error instanceof Error ? error.message : 'Não foi possível criar sua conta. Tente novamente.'

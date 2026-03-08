@@ -56,7 +56,7 @@ export function App() {
   return (
     <BrowserRouter>
       <Routes>
-        <Route path="/login" element={<LoginPage />} />
+        <Route  path="/login" element={<LoginPage />} />
         <Route path="/registrar" element={<RegisterPage />} />
         <Route path="/verificar-email" element={<VerifyEmail />} />
         <Route path="/esqueci-senha" element={<ForgotPassword />} />

@@ -44,6 +44,7 @@ export interface CepResponse {
   cidade?: string
   estado?: string
   erro?: boolean
+  logradouro?: string
 }
 
 export interface CompletarPerfilPayload {
@@ -208,6 +209,7 @@ export async function fetchCep(cep: string): Promise<CepResponse> {
           localidade: vc.localidade ?? vc.cidade,
           bairro: vc.bairro,
           uf: vc.uf ?? vc.estado,
+          logradouro: vc.logradouro,
         }
       } catch {
         throw new Error('CEP não encontrado.')
