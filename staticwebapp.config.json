@@ -2,5 +2,8 @@
   "mimeTypes": {
     ".js": "text/javascript",
     ".css": "text/css"
+  },
+  "navigationFallback": {
+    "rewrite": "/index.html"
   }
 }
