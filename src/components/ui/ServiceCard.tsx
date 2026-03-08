@@ -1,14 +1,14 @@
 import React from 'react';
-import type { Anuncio } from '../../types';
+import type { Post } from '../../services/api';
 import { Image, MapPin, MessageSquare, Share2, AlertCircle } from 'lucide-react';
 
 interface ServiceCardProps {
-  anuncio: Anuncio;
+  post: Post;
   onClick: () => void;
 }
 
-export const ServiceCard: React.FC<ServiceCardProps> = ({ anuncio, onClick }) => {
-  const hasComments = anuncio.comentarios && anuncio.comentarios > 0;
+export const ServiceCard: React.FC<ServiceCardProps> = ({ post, onClick }) => {
+  const hasComments = post.comentarios && post.comentarios > 0;
 
   return (
     <div
@@ -16,7 +16,7 @@ export const ServiceCard: React.FC<ServiceCardProps> = ({ anuncio, onClick }) =>
       onClick={onClick}
     >
       {/* Image Area */}
-      {anuncio.foto && (
+      {post.foto && (
         <div className="flex-shrink-0 w-full sm:w-48 h-48 bg-gray-100 rounded-lg overflow-hidden flex items-center justify-center">
           {/* Using a placeholder icon, but this could be an <img> tag */}
           <Image size={64} className="text-gray-400" />
@@ -28,8 +28,8 @@ export const ServiceCard: React.FC<ServiceCardProps> = ({ anuncio, onClick }) =>
         <div>
           {/* Header */}
           <div className="flex justify-between items-start">
-            <h3 className="text-lg font-bold text-brand-navy">{anuncio.titulo}</h3>
-            {anuncio.urgente && (
+            <h3 className="text-lg font-bold text-brand-navy">{post.titulo}</h3>
+            {post.urgente && (
               <span className="bg-red-500 text-white text-xs font-bold px-2 py-1 rounded-full flex items-center flex-shrink-0 ml-2">
                 <AlertCircle size={12} className="mr-1" />
                 URGENTE
@@ -38,15 +38,15 @@ export const ServiceCard: React.FC<ServiceCardProps> = ({ anuncio, onClick }) =>
           </div>
 
           {/* Body */}
-          <p className="mt-2 text-gray-500 text-sm line-clamp-3">{anuncio.descricao}</p>
+          <p className="mt-2 text-gray-500 text-sm line-clamp-3">{post.conteudo}</p>
         </div>
 
         <div>
           {/* Recommendation Tag */}
-          {anuncio.categoria && (
+          {post.categoria && (
             <div className="mt-4">
               <span className="bg-brand-orange text-white text-xs font-semibold px-3 py-1 rounded-full">
-                Profissional recomendado: {anuncio.categoria}
+                {post.categoria}
               </span>
             </div>
           )}
@@ -55,12 +55,12 @@ export const ServiceCard: React.FC<ServiceCardProps> = ({ anuncio, onClick }) =>
           <div className="mt-4 flex justify-between items-center text-sm text-gray-500 flex-wrap gap-2">
             <div className="flex items-center">
               <MapPin size={16} className="mr-1" />
-              <span>{anuncio.endereco}</span>
+              <span>{post.endereco}</span>
             </div>
             <div className={`flex items-center ${hasComments ? 'text-green-600' : 'text-blue-600'}`}>
               <MessageSquare size={16} className="mr-1" />
               <span>
-                {hasComments ? `${anuncio.comentarios} comentários` : 'Seja o primeiro a comentar!'}
+                {hasComments ? `${post.comentarios} comentários` : 'Seja o primeiro a comentar!'}
               </span>
             </div>
             <div className="flex items-center">

@@ -332,5 +332,77 @@ export async function updateCadastro(
   }
 }
 
+// --- Post (Anúncio) Endpoints ---
+
+export interface PostPayload {
+  titulo: string;
+  conteudo: string;
+  endereco: string;
+  cep: string;
+  contato: string;
+}
+
+export interface Post extends PostPayload {
+  id: number;
+  usuarioId: number;
+  autorNome: string;
+  dataPostagem: string;
+  // Optional fields to match ServiceCard
+  urgente?: boolean;
+  categoria?: string;
+  comentarios?: number;
+  foto?: string;
+}
+
+export async function createPost(
+  usuarioId: string,
+  payload: PostPayload,
+): Promise<Post> {
+  try {
+    const { data } = await api.post<Post>(`/api/post/postar/${usuarioId}`, payload)
+    return data
+  } catch (error) {
+    throw new Error(toErrorMessage(error))
+  }
+}
+
+export async function getAllPosts(): Promise<Post[]> {
+  try {
+    const { data } = await api.get<Post[]>('/api/post/getposts')
+    return data
+  } catch (error) {
+    throw new Error(toErrorMessage(error))
+  }
+}
+
+export async function getUserPosts(usuarioId: string): Promise<Post[]> {
+  try {
+    const { data } = await api.get<Post[]>(`/api/post/getposts/${usuarioId}`)
+    return data
+  } catch (error) {
+    throw new Error(toErrorMessage(error))
+  }
+}
+
+export async function editPost(
+  idpost: string,
+  payload: PostPayload,
+): Promise<Post> {
+  try {
+    const { data } = await api.put<Post>(`/api/post/editar/${idpost}`, payload)
+    return data
+  } catch (error) {
+    throw new Error(toErrorMessage(error))
+  }
+}
+
+export async function deletePost(idpost: string): Promise<void> {
+  try {
+    await api.delete(`/api/post/deletarpost/${idpost}`)
+  } catch (error) {
+    throw new Error(toErrorMessage(error))
+  }
+}
+
 export { TOKEN_STORAGE_KEY }
 
