@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react'
-import type { AuthResponse, LoginPayload, RegisterPayload } from '../services/api'
+import type { AuthResponse, AuthUser, LoginPayload, RegisterPayload } from '../services/api'
 import { TOKEN_STORAGE_KEY, login as loginRequest, register as registerRequest } from '../services/api'
 
 interface AuthContextValue {
@@ -9,6 +9,8 @@ interface AuthContextValue {
   login: (payload: LoginPayload) => Promise<void>
   register: (payload: RegisterPayload) => Promise<void>
   logout: () => void
+  /** Atualiza o usuário (ex.: após completar perfil) */
+  updateUser: (user: AuthUser) => void
 }
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined)
@@ -63,15 +65,21 @@ export function AuthProvider({ children }: AuthProviderProps) {
     localStorage.removeItem('severino_user')
   }
 
+  function updateUser(newUser: AuthUser) {
+    setUser(newUser)
+    localStorage.setItem('severino_user', JSON.stringify(newUser))
+  }
+
   return (
     <AuthContext.Provider
-      value={{
+        value={{
         user,
         token,
         isAuthenticated: !!token,
         login: handleLogin,
         register: handleRegister,
         logout,
+        updateUser,
       }}
     >
       {children}
