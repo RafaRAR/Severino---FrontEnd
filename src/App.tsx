@@ -48,10 +48,10 @@ export function App() {
       });
   }, [isAuthenticated, user, updateUser]);
 
-  function handleProfileComplete(updatedUser: Parameters<typeof updateUser>[0]) {
-    updateUser(updatedUser);
-    setShowCompleteProfile(false);
-  }
+  // function handleProfileComplete(updatedUser: Parameters<typeof updateUser>[0]) {
+  //   updateUser(updatedUser);
+  //   setShowCompleteProfile(false);
+  // }
 
   return (
     <BrowserRouter>
