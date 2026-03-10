@@ -12,6 +12,7 @@ import {
   createPost,
   fetchCep,
   getCadastro,
+  deletePost,
   type Post,
   type PostPayload,
   type CadastroPayload,
@@ -40,6 +41,7 @@ type PostFormData = z.infer<typeof postFormSchema>;
 
 // Main Home Component
 export const Home: React.FC = () => {
+  const { user } = useAuth();
   const [posts, setPosts] = useState<Post[]>([]);
   const [selectedPost, setSelectedPost] = useState<Post | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -76,6 +78,25 @@ export const Home: React.FC = () => {
   const handlePostCreated = () => {
     setIsCreateModalOpen(false);
     fetchPosts();
+  };
+
+  const handleDeletePost = async () => {
+    if (!selectedPost || !user) return;
+    
+    // Verificar se o post pertence ao usuário logado
+    if (selectedPost.usuarioId !== parseInt(user.id, 10)) {
+      console.error('Você só pode deletar seus próprios posts');
+      return;
+    }
+    
+    try {
+      await deletePost(selectedPost.id.toString());
+      setPosts(prevPosts => prevPosts.filter(post => post.id !== selectedPost.id));
+      handleCloseViewModal();
+    } catch (error) {
+      console.error('Erro ao deletar post:', error);
+      // Aqui você pode adicionar um toast ou alerta de erro
+    }
   };
 
   const cleanPhoneNumber = (phone: string) => phone.replace(/\D/g, '');
@@ -115,7 +136,11 @@ export const Home: React.FC = () => {
       </button>
 
       {selectedPost && (
-        <Dialog isOpen={isViewModalOpen} onClose={handleCloseViewModal}>
+        <Dialog 
+          isOpen={isViewModalOpen} 
+          onClose={handleCloseViewModal} 
+          onDelete={selectedPost.usuarioId === parseInt(user?.id || '0', 10) ? handleDeletePost : undefined}
+        >
           <div className="bg-gray-200 mb-4 flex h-64 items-center justify-center rounded-lg">
             <Image size={80} className="text-gray-400" />
           </div>
