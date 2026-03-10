@@ -150,7 +150,7 @@ export function CompleteProfileModal({ isOpen, onClose }: CompleteProfileModalPr
 
   return (
     <Dialog isOpen={isOpen} isBlocking>
-      <div className="w-full max-w-2xl rounded-2xl bg-white p-8 shadow-2xl">
+      <div className="w-full max-w-2xl rounded-2xl bg-white p-8 shadow-2xl max-h-[80vh] overflow-y-auto">
         <h2 className="mb-2 text-center text-2xl font-bold text-brand-navy">
           Complete seu Perfil
         </h2>
