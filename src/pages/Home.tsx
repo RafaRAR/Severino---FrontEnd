@@ -129,7 +129,9 @@ export const Home: React.FC = () => {
 
       {isCreateModalOpen && (
         <Dialog isOpen={isCreateModalOpen} onClose={() => setIsCreateModalOpen(false)}>
-          <CreatePostForm onPostCreated={handlePostCreated} onClose={() => setIsCreateModalOpen(false)} />
+          <div className="max-h-[80vh] overflow-y-auto">
+            <CreatePostForm onPostCreated={handlePostCreated} onClose={() => setIsCreateModalOpen(false)} />
+          </div>
         </Dialog>
       )}
     </div>

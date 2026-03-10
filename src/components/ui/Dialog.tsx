@@ -52,7 +52,7 @@ export const Dialog: React.FC<DialogProps> = ({
         {!isBlocking && onClose && (
           <button
             onClick={onClose}
-            className="absolute top-3 right-3 rounded-full p-1 text-gray-500 hover:bg-gray-100 hover:text-gray-700"
+            className="absolute top-3 right-3 z-10 rounded-full p-1 text-gray-500 hover:bg-gray-100 hover:text-gray-700"
           >
             <X size={24} />
           </button>
