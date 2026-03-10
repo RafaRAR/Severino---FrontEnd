@@ -126,8 +126,11 @@ const EditProfileModal = ({ isOpen, onClose, userId }: EditProfileModalProps) =>
   return (
     <Dialog isOpen={isOpen} onClose={onClose}>
       <div className="max-h-[80vh] overflow-y-auto">
-        <div className="mb-6">
+        <div className="flex justify-between items-center mb-6">
           <h2 className="text-2xl font-bold text-brand-navy">Editar Perfil</h2>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
+            <X className="w-6 h-6" />
+          </button>
         </div>
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
           <div className='flex justify-between items-center bg-gray-100 p-3 rounded-lg'>
