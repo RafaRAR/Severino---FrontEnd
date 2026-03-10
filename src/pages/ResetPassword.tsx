@@ -1,89 +1,115 @@
-import { useState } from 'react'
-import { useLocation, useNavigate } from 'react-router-dom'
-import { resetarSenha } from '../services/api'
+import { useState } from 'react';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
+import { useLocation, useNavigate } from 'react-router-dom';
+import { resetarSenha } from '../services/api';
 
-import { AuthLayout } from '../components/layout/AuthLayout'
-import { Button } from '../components/ui/Button'
-import { Input } from '../components/ui/Input'
+import { AuthLayout } from '../components/layout/AuthLayout';
+import { Button } from '../components/ui/Button';
+import { Input } from '../components/ui/Input';
+
+const resetPasswordSchema = z.object({
+  email: z.string().email('Informe um e-mail válido'),
+  code: z.string().length(6, 'O código deve ter 6 dígitos'),
+  newPassword: z
+    .string()
+    .min(8, 'A senha deve ter pelo menos 8 caracteres')
+    .regex(/[A-Z]/, 'Use pelo menos uma letra maiúscula')
+    .regex(/[a-z]/, 'Use pelo menos uma letra minúscula')
+    .regex(/[0-9]/, 'Use pelo menos um número'),
+  confirmPassword: z.string(),
+}).refine(data => data.newPassword === data.confirmPassword, {
+  message: 'As senhas não conferem',
+  path: ['confirmPassword'],
+});
+
+type ResetPasswordFormData = z.infer<typeof resetPasswordSchema>;
 
 export function ResetPassword() {
-  const navigate = useNavigate()
-  const location = useLocation()
-  const [email, setEmail] = useState(location.state?.email || '')
-  const [code, setCode] = useState('')
-  const [newPassword, setNewPassword] = useState('')
-  const [error, setError] = useState('')
-  const [isLoading, setIsLoading] = useState(false)
+  const navigate = useNavigate();
+  const location = useLocation();
+  const [submitError, setSubmitError] = useState('');
 
-  const handleResetPassword = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setError('')
-    if (!email || !code || !newPassword) {
-      setError('Por favor, preencha todos os campos.')
-      return
-    }
-    setIsLoading(true)
+  const {
+    register,
+    handleSubmit,
+    formState: { errors, isSubmitting, isValid },
+  } = useForm<ResetPasswordFormData>({
+    resolver: zodResolver(resetPasswordSchema),
+    mode: 'onChange',
+    defaultValues: {
+      email: location.state?.email || '',
+    },
+  });
+
+  const handleResetPassword = async (data: ResetPasswordFormData) => {
+    setSubmitError('');
     try {
-      await resetarSenha({ email, codigo: code, novaSenha: newPassword })
-      // On success, redirect to the login page with a success message
-      navigate('/login', { state: { successMessage: 'Senha redefinida com sucesso!' } })
+      await resetarSenha({ email: data.email, codigo: data.code, novaSenha: data.newPassword });
+      navigate('/login', { state: { successMessage: 'Senha redefinida com sucesso!' } });
     } catch (err) {
       if (err instanceof Error) {
         if (err.message.includes('400')) {
-          setError('Código de verificação inválido ou expirado. Tente novamente.')
+          setSubmitError('Código de verificação inválido ou expirado. Tente novamente.');
         } else {
-          setError(err.message)
+          setSubmitError(err.message);
         }
       } else {
-        setError('Ocorreu um erro desconhecido.')
+        setSubmitError('Ocorreu um erro desconhecido.');
       }
-    } finally {
-      setIsLoading(false)
     }
-  }
+  };
 
   return (
-    <AuthLayout title='Redefinir Senha' subtitle='Crie uma nova senha para sua conta.'>
-      <form onSubmit={handleResetPassword}>
-        <div className="mb-4">
+    <AuthLayout title="Redefinir Senha" subtitle="Crie uma nova senha para sua conta.">
+      <form onSubmit={handleSubmit(handleResetPassword)} className="space-y-6">
+        {submitError && (
+          <div className="rounded-lg border border-red-500/40 bg-red-500/10 px-3 py-2 text-xs text-red-300">
+            {submitError}
+          </div>
+        )}
+        <div className="space-y-4">
           <Input
             id="email"
             type="email"
             label="E-mail"
             placeholder="seu-email@exemplo.com"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
+            {...register('email')}
+            error={errors.email?.message}
             disabled={!!location.state?.email}
           />
-        </div>
-        <div className="mb-4">
           <Input
             id="code"
             type="text"
             label="Código de Recuperação"
-            placeholder="_ _ _ _ _ _"
-            value={code}
-            onChange={(e) => setCode(e.target.value)}
+            placeholder="______"
+            {...register('code')}
+            error={errors.code?.message}
             maxLength={6}
           />
-        </div>
-        <div className="mb-6">
           <Input
             id="newPassword"
             type="password"
             label="Nova Senha"
             placeholder="********"
-            value={newPassword}
-            onChange={(e) => setNewPassword(e.target.value)}
+            {...register('newPassword')}
+            error={errors.newPassword?.message}
+          />
+          <Input
+            id="confirmPassword"
+            type="password"
+            label="Confirmar Nova Senha"
+            placeholder="********"
+            {...register('confirmPassword')}
+            error={errors.confirmPassword?.message}
           />
         </div>
 
-        {error && <p className="text-red-500 text-sm mb-4 text-center">{error}</p>}
-
-        <Button type="submit" className="w-full" disabled={isLoading}>
-          {isLoading ? 'Redefinindo...' : 'Redefinir Senha'}
+        <Button type="submit" className="w-full" disabled={isSubmitting || !isValid}>
+          {isSubmitting ? 'Redefinindo...' : 'Redefinir Senha'}
         </Button>
       </form>
     </AuthLayout>
-  )
+  );
 }
