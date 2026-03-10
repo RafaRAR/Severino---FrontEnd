@@ -119,9 +119,9 @@ export const Home: React.FC = () => {
             <Image size={80} className="text-gray-400" />
           </div>
           <p className="mb-4 text-gray-600 whitespace-pre-wrap break-words">{selectedPost.conteudo}</p>
-          
+
           <div className="grid grid-cols-2 gap-4 text-sm text-gray-700 mb-4">
-            <div className="flex items-center gap-2"><User size={16} /> <span>{selectedPost.NomeUsuario}</span></div>
+            <div className="flex items-center gap-2"><User size={16} /> <span>{selectedPost.nomeUsuario}</span></div>
             <div className="flex items-center gap-2"><MapPin size={16} /> <span>{selectedPost.endereco}</span></div>
             <div className="flex items-center gap-2"><Calendar size={16} /> <span>{formatDistanceToNow(selectedPost.dataCriacao)}</span></div>
             {selectedPost.categoria && <div className="flex items-center gap-2"><Tag size={16} /> <span>{selectedPost.categoria}</span></div>}
