@@ -1,17 +1,29 @@
-import { createContext, useContext, useEffect, useState, type ReactNode } from 'react'
-import type { AuthResponse, AuthUser, LoginPayload, RegisterPayload } from '../services/api'
-import { TOKEN_STORAGE_KEY, login as loginRequest, register as registerRequest } from '../services/api'
+import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from 'react'
+import type {
+  AuthResponse,
+  AuthUser,
+  CadastroPayload,
+  LoginPayload,
+  RegisterPayload,
+} from '../services/api'
+import {
+  TOKEN_STORAGE_KEY,
+  getCadastro,
+  login as loginRequest,
+  register as registerRequest,
+} from '../services/api'
 
 interface AuthContextValue {
-  user: AuthResponse['user'] | null
+  user: AuthUser | null
   token: string | null
   isAuthenticated: boolean
+  profile: CadastroPayload | null
+  isProfileComplete: boolean
   login: (token: string, user: AuthUser) => void
   loginWithCredentials: (payload: LoginPayload) => Promise<void>
   register: (payload: RegisterPayload) => Promise<void>
   logout: () => void
-  /** Atualiza o usuário (ex.: após completar perfil) */
-  updateUser: (user: AuthUser) => void
+  updateProfile: (profile: CadastroPayload) => void
 }
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined)
@@ -21,32 +33,57 @@ interface AuthProviderProps {
 }
 
 export function AuthProvider({ children }: AuthProviderProps) {
-  const [user, setUser] = useState<AuthResponse['user'] | null>(null)
+  const [user, setUser] = useState<AuthUser | null>(null)
   const [token, setToken] = useState<string | null>(null)
+  const [profile, setProfile] = useState<CadastroPayload | null>(null)
+  const [isProfileComplete, setProfileComplete] = useState(true)
+
+  const fetchProfile = useCallback(async (userId: string) => {
+    try {
+      const userProfile = await getCadastro(userId)
+      if (userProfile && userProfile.role) {
+        setProfile(userProfile)
+        setProfileComplete(true)
+        localStorage.setItem('severino_profile', JSON.stringify(userProfile))
+      } else {
+        setProfileComplete(false)
+      }
+    } catch (error) {
+      console.error('Failed to fetch profile:', error)
+      setProfileComplete(false)
+      localStorage.removeItem('severino_profile')
+    }
+  }, [])
 
   useEffect(() => {
     const storedToken = localStorage.getItem(TOKEN_STORAGE_KEY)
     const storedUser = localStorage.getItem('severino_user')
+    const storedProfile = localStorage.getItem('severino_profile')
 
-    if (storedToken) {
+    if (storedToken && storedUser) {
       try {
+        const parsedUser: AuthUser = JSON.parse(storedUser)
         setToken(storedToken)
-        if (storedUser) {
-          const parsedUser = JSON.parse(storedUser)
-          setUser(parsedUser)
+        setUser(parsedUser)
+        if (storedProfile) {
+          const parsedProfile: CadastroPayload = JSON.parse(storedProfile)
+          setProfile(parsedProfile)
+          setProfileComplete(!!parsedProfile.role)
+        } else {
+          fetchProfile(parsedUser.id)
         }
       } catch {
-        localStorage.removeItem(TOKEN_STORAGE_KEY)
-        localStorage.removeItem('severino_user')
+        logout()
       }
     }
-  }, [])
+  }, [fetchProfile])
 
   function persistAuth(auth: AuthResponse) {
     setUser(auth.user)
     setToken(auth.token)
     localStorage.setItem(TOKEN_STORAGE_KEY, auth.token)
     localStorage.setItem('severino_user', JSON.stringify(auth.user))
+    fetchProfile(auth.user.id)
   }
 
   function login(token: string, user: AuthUser) {
@@ -60,19 +97,23 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
   async function handleRegister(payload: RegisterPayload) {
     await registerRequest(payload)
-    // Não faz mais o login automático
+    // No login automatic
   }
 
   function logout() {
     setUser(null)
     setToken(null)
+    setProfile(null)
+    setProfileComplete(false)
     localStorage.removeItem(TOKEN_STORAGE_KEY)
     localStorage.removeItem('severino_user')
+    localStorage.removeItem('severino_profile')
   }
 
-  function updateUser(newUser: AuthUser) {
-    setUser(newUser)
-    localStorage.setItem('severino_user', JSON.stringify(newUser))
+  function updateProfile(newProfile: CadastroPayload) {
+    setProfile(newProfile)
+    setProfileComplete(true)
+    localStorage.setItem('severino_profile', JSON.stringify(newProfile))
   }
 
   return (
@@ -81,11 +122,13 @@ export function AuthProvider({ children }: AuthProviderProps) {
         user,
         token,
         isAuthenticated: !!token,
+        profile,
+        isProfileComplete,
         login,
         loginWithCredentials,
         register: handleRegister,
         logout,
-        updateUser,
+        updateProfile,
       }}
     >
       {children}
@@ -96,7 +139,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
 export function useAuthContext() {
   const context = useContext(AuthContext)
   if (!context) {
-    throw new Error('useAuthContext deve ser usado dentro de AuthProvider')
+    throw new Error('useAuth deve ser usado dentro de um AuthProvider')
   }
   return context
 }

@@ -49,7 +49,7 @@ interface CompleteProfileModalProps {
 }
 
 export function CompleteProfileModal({ isOpen, onClose }: CompleteProfileModalProps) {
-  const { user, updateUser } = useAuth()
+  const { user, updateProfile } = useAuth()
   const [selectedRole, setSelectedRole] = useState<Role | null>(null)
   const [submitError, setSubmitError] = useState<string | null>(null)
   const [loadingCep, setLoadingCep] = useState(false)
@@ -139,7 +139,7 @@ export function CompleteProfileModal({ isOpen, onClose }: CompleteProfileModalPr
     try {
       await cadastrar(user.id, payload)
       if (user) {
-        updateUser({ ...user, profileComplete: true })
+        updateProfile(payload)
       }
       reset()
       onClose()
