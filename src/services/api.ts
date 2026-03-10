@@ -313,8 +313,8 @@ export interface PostPayload {
 export interface Post extends PostPayload {
   id: number;
   usuarioId: number;
-  autorNome: string;
-  dataPostagem: string;
+  NomeUsuario: string;
+  dataCriacao: string;
   // Optional fields to match ServiceCard
   urgente?: boolean;
   categoria?: string;

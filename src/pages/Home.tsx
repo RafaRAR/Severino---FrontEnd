@@ -1,11 +1,13 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { ServiceCard } from '../components/ui/ServiceCard';
 import { BaseModal } from '../components/ui/BaseModal';
-import { Plus, Image, Phone, Loader2, Trash2 } from 'lucide-react';
+import { Plus, Image, Phone, Loader2, Trash2, Edit, User, MapPin, Calendar, Tag } from 'lucide-react';
 import { deletePost, getAllPosts, type Post } from '../services/api';
 import { CreatePostModal } from '../components/CreatePostModal';
+import { EditPostModal } from '../components/EditPostModal';
 import { useAuth } from '../hooks/useAuth';
 import { toast } from 'react-toastify';
+import { formatDistanceToNow } from '../utils/date';
 
 // Main Home Component
 export const Home: React.FC = () => {
@@ -15,12 +17,13 @@ export const Home: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [isViewModalOpen, setIsViewModalOpen] = useState(false);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
 
   const fetchPosts = useCallback(async () => {
     try {
       // Don't set loading to true here to avoid flickering on re-fetch
       const fetchedPosts = await getAllPosts();
-      setPosts(fetchedPosts.sort((a, b) => new Date(b.dataPostagem).getTime() - new Date(a.dataPostagem).getTime()));
+      setPosts(fetchedPosts.sort((a, b) => new Date(b.dataCriacao).getTime() - new Date(a.dataCriacao).getTime()));
     } catch (error) {
       console.error('Erro ao buscar anúncios:', error);
     } finally {
@@ -46,6 +49,16 @@ export const Home: React.FC = () => {
   const handlePostCreated = () => {
     setIsCreateModalOpen(false);
     fetchPosts();
+  };
+
+  const handlePostUpdated = () => {
+    setIsEditModalOpen(false);
+    fetchPosts();
+  };
+
+  const handleOpenEditModal = () => {
+    setIsViewModalOpen(false);
+    setIsEditModalOpen(true);
   };
 
   const handleDeletePost = async () => {
@@ -105,7 +118,15 @@ export const Home: React.FC = () => {
           <div className="bg-gray-200 mb-4 flex h-64 items-center justify-center rounded-lg">
             <Image size={80} className="text-gray-400" />
           </div>
-          <p className="mb-4 text-gray-600">{selectedPost.conteudo}</p>
+          <p className="mb-4 text-gray-600 whitespace-pre-wrap break-words">{selectedPost.conteudo}</p>
+          
+          <div className="grid grid-cols-2 gap-4 text-sm text-gray-700 mb-4">
+            <div className="flex items-center gap-2"><User size={16} /> <span>{selectedPost.NomeUsuario}</span></div>
+            <div className="flex items-center gap-2"><MapPin size={16} /> <span>{selectedPost.endereco}</span></div>
+            <div className="flex items-center gap-2"><Calendar size={16} /> <span>{formatDistanceToNow(selectedPost.dataCriacao)}</span></div>
+            {selectedPost.categoria && <div className="flex items-center gap-2"><Tag size={16} /> <span>{selectedPost.categoria}</span></div>}
+          </div>
+
           <div className="flex flex-col space-y-2">
             <a
               href={`https://wa.me/55${cleanPhoneNumber(selectedPost.contato)}`}
@@ -117,13 +138,22 @@ export const Home: React.FC = () => {
               Chamar no WhatsApp
             </a>
             {user && selectedPost.usuarioId === parseInt(user.id, 10) && (
-              <button
-                onClick={handleDeletePost}
-                className="flex w-full items-center justify-center rounded bg-red-500 py-2 px-4 font-bold text-white hover:bg-red-600"
-              >
-                <Trash2 size={20} className="mr-2" />
-                Deletar Anúncio
-              </button>
+              <div className="flex gap-2">
+                <button
+                  onClick={handleOpenEditModal}
+                  className="flex w-full items-center justify-center rounded bg-blue-500 py-2 px-4 font-bold text-white hover:bg-blue-600"
+                >
+                  <Edit size={20} className="mr-2" />
+                  Editar Anúncio
+                </button>
+                <button
+                  onClick={handleDeletePost}
+                  className="flex w-full items-center justify-center rounded bg-red-500 py-2 px-4 font-bold text-white hover:bg-red-600"
+                >
+                  <Trash2 size={20} className="mr-2" />
+                  Deletar Anúncio
+                </button>
+              </div>
             )}
           </div>
         </BaseModal>
@@ -134,7 +164,14 @@ export const Home: React.FC = () => {
         onClose={() => setIsCreateModalOpen(false)}
         onPostCreated={handlePostCreated}
       />
+      {selectedPost && (
+        <EditPostModal
+          isOpen={isEditModalOpen}
+          onClose={() => setIsEditModalOpen(false)}
+          onPostUpdated={handlePostUpdated}
+          post={selectedPost}
+        />
+      )}
     </div>
   );
 };
-

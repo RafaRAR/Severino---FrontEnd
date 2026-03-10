@@ -55,12 +55,12 @@ export const BaseModal: React.FC<BaseModalProps> = ({
         className="relative w-full max-w-2xl rounded-2xl bg-white p-8 shadow-2xl max-h-[90vh] overflow-y-auto"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex justify-between items-start mb-6">
-          <h2 className="text-2xl font-bold text-brand-navy">{title}</h2>
+        <div className="relative mb-6">
+          <h2 className="text-2xl font-bold text-brand-navy break-words pr-12">{title}</h2>
           {!isBlocking && onClose && (
             <button
               onClick={onClose}
-              className="-mt-2 -mr-2 rounded-full p-2 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+              className="absolute top-0 right-0 -mt-2 -mr-2 rounded-full p-2 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
             >
               <X size={24} />
             </button>
