@@ -3,7 +3,7 @@ import { useForm, Controller } from 'react-hook-form'
 import { z } from 'zod'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { User, Wrench } from 'lucide-react'
-import { Dialog } from './ui/Dialog'
+import { BaseModal } from './ui/BaseModal'
 import { Button } from './ui/Button'
 import { Input } from './ui/Input'
 import { cadastrar, fetchCep, type CadastroPayload } from '../services/api'
@@ -47,6 +47,7 @@ interface CompleteProfileModalProps {
   isOpen: boolean
   onClose: () => void
 }
+
 
 export function CompleteProfileModal({ isOpen, onClose }: CompleteProfileModalProps) {
   const { user, updateProfile } = useAuth()
@@ -148,160 +149,156 @@ export function CompleteProfileModal({ isOpen, onClose }: CompleteProfileModalPr
     }
   }
 
-  return (
-    <Dialog isOpen={isOpen} isBlocking>
-      <div className="w-full max-w-2xl rounded-2xl bg-white p-8 shadow-2xl max-h-[80vh] overflow-y-auto">
-        <h2 className="mb-2 text-center text-2xl font-bold text-brand-navy">
-          Complete seu Perfil
-        </h2>
-        <p className="mb-6 text-center text-gray-500">
-          Primeiro, nos diga que tipo de conta você precisa.
-        </p>
 
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
-          <div>
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-              <RoleCard
-                icon={<User className="size-7" />}
-                title="Sou Cliente"
-                description="Quero contratar profissionais."
-                onClick={() => handleRoleSelect('Cliente')}
-                selected={selectedRole === 'Cliente'}
-              />
-              <RoleCard
-                icon={<Wrench className="size-7" />}
-                title="Sou Prestador"
-                description="Quero oferecer meus serviços."
-                onClick={() => handleRoleSelect('Prestador')}
-                selected={selectedRole === 'Prestador'}
-              />
-            </div>
-            {errors.role && <p className="mt-2 text-xs text-red-500">{errors.role.message}</p>}
+  return (
+    <BaseModal title="Complete seu Perfil" isOpen={isOpen} isBlocking>
+      <p className="mb-6 text-center text-gray-500 -mt-4">
+        Primeiro, nos diga que tipo de conta você precisa.
+      </p>
+
+      <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
+        <div>
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+            <RoleCard
+              icon={<User className="size-7" />}
+              title="Sou Cliente"
+              description="Quero contratar profissionais."
+              onClick={() => handleRoleSelect('Cliente')}
+              selected={selectedRole === 'Cliente'}
+            />
+            <RoleCard
+              icon={<Wrench className="size-7" />}
+              title="Sou Prestador"
+              description="Quero oferecer meus serviços."
+              onClick={() => handleRoleSelect('Prestador')}
+              selected={selectedRole === 'Prestador'}
+            />
+          </div>
+          {errors.role && <p className="mt-2 text-xs text-red-500">{errors.role.message}</p>}
+        </div>
+
+        <fieldset disabled={!selectedRole || isSubmitting} className="space-y-4 pt-2">
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+            <Input
+              label="Nome Completo"
+              {...register('nome')}
+              error={errors.nome?.message}
+              variant="light"
+            />
+            <Controller
+              name="cpf"
+              control={control}
+              render={({ field }) => (
+                <Input
+                  label="CPF"
+                  placeholder="000.000.000-00"
+                  {...field}
+                  onChange={(e) => field.onChange(maskCPF(e.target.value))}
+                  error={errors.cpf?.message}
+                  variant="light"
+                />
+              )}
+            />
           </div>
 
-          <fieldset disabled={!selectedRole || isSubmitting} className="space-y-4 pt-2">
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-              <Input
-                label="Nome Completo"
-                {...register('nome')}
-                error={errors.nome?.message}
-                variant="light"
-              />
-              <Controller
-                name="cpf"
-                control={control}
-                render={({ field }) => (
-                  <Input
-                    label="CPF"
-                    placeholder="000.000.000-00"
-                    {...field}
-                    onChange={(e) => field.onChange(maskCPF(e.target.value))}
-                    error={errors.cpf?.message}
-                    variant="light"
-                  />
-                )}
-              />
-            </div>
-
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-              <Input
-                label="Data de Nascimento"
-                type="date"
-                {...register('dataNascimento')}
-                error={errors.dataNascimento?.message}
-                variant="light"
-              />
-              <Controller
-                name="contato"
-                control={control}
-                render={({ field }) => (
-                  <Input
-                    label="Celular com DDD"
-                    placeholder="(11) 99999-9999"
-                    {...field}
-                    onChange={(e) => field.onChange(maskPhone(e.target.value))}
-                    error={errors.contato?.message}
-                    variant="light"
-                  />
-                )}
-              />
-            </div>
-
-            <div className="grid grid-cols-1 items-start gap-4 md:grid-cols-[1fr_2fr]">
-              <Controller
-                name="cep"
-                control={control}
-                render={({ field }) => (
-                  <Input
-                    label="CEP"
-                    placeholder="00000-000"
-                    {...field}
-                    onBlur={handleCepBlur}
-                    onChange={(e) => field.onChange(maskCEP(e.target.value))}
-                    error={errors.cep?.message}
-                    variant="light"
-                  />
-                )}
-              />
-              <Input
-                label="Rua / Logradouro"
-                {...register('rua')}
-                error={errors.rua?.message}
-                variant="light"
-                disabled={loadingCep}
-              />
-            </div>
-
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-[1fr_2fr_1fr]">
-              <Input
-                label="Número"
-                {...register('numero')}
-                error={errors.numero?.message}
-                variant="light"
-              />
-              <Input
-                label="Bairro"
-                {...register('bairro')}
-                error={errors.bairro?.message}
-                variant="light"
-                disabled={loadingCep}
-              />
-              <Input
-                label="UF"
-                {...register('estado')}
-                error={errors.estado?.message}
-                variant="light"
-                disabled={loadingCep}
-                maxLength={2}
-              />
-            </div>
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
             <Input
-              label="Cidade"
-              {...register('cidade')}
-              error={errors.cidade?.message}
+              label="Data de Nascimento"
+              type="date"
+              {...register('dataNascimento')}
+              error={errors.dataNascimento?.message}
+              variant="light"
+            />
+            <Controller
+              name="contato"
+              control={control}
+              render={({ field }) => (
+                <Input
+                  label="Celular com DDD"
+                  placeholder="(11) 99999-9999"
+                  {...field}
+                  onChange={(e) => field.onChange(maskPhone(e.target.value))}
+                  error={errors.contato?.message}
+                  variant="light"
+                />
+              )}
+            />
+          </div>
+
+          <div className="grid grid-cols-1 items-start gap-4 md:grid-cols-[1fr_2fr]">
+            <Controller
+              name="cep"
+              control={control}
+              render={({ field }) => (
+                <Input
+                  label="CEP"
+                  placeholder="00000-000"
+                  {...field}
+                  onBlur={handleCepBlur}
+                  onChange={(e) => field.onChange(maskCEP(e.target.value))}
+                  error={errors.cep?.message}
+                  variant="light"
+                />
+              )}
+            />
+            <Input
+              label="Rua / Logradouro"
+              {...register('rua')}
+              error={errors.rua?.message}
               variant="light"
               disabled={loadingCep}
             />
-
-            {loadingCep && <p className="mt-2 text-sm text-gray-500">Buscando CEP...</p>}
-          </fieldset>
-
-          {submitError && <p className="text-sm text-red-500">{submitError}</p>}
-
-          <div className="pt-4">
-            <Button
-              type="submit"
-              variant="brand"
-              loading={isSubmitting}
-              disabled={!selectedRole || isSubmitting}
-              className="w-full font-bold text-white hover:bg-orange-600"
-            >
-              Salvar e Continuar
-            </Button>
           </div>
-        </form>
-      </div>
-    </Dialog>
+
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-[1fr_2fr_1fr]">
+            <Input
+              label="Número"
+              {...register('numero')}
+              error={errors.numero?.message}
+              variant="light"
+            />
+            <Input
+              label="Bairro"
+              {...register('bairro')}
+              error={errors.bairro?.message}
+              variant="light"
+              disabled={loadingCep}
+            />
+            <Input
+              label="UF"
+              {...register('estado')}
+              error={errors.estado?.message}
+              variant="light"
+              disabled={loadingCep}
+              maxLength={2}
+            />
+          </div>
+          <Input
+            label="Cidade"
+            {...register('cidade')}
+            error={errors.cidade?.message}
+            variant="light"
+            disabled={loadingCep}
+          />
+
+          {loadingCep && <p className="mt-2 text-sm text-gray-500">Buscando CEP...</p>}
+        </fieldset>
+
+        {submitError && <p className="text-sm text-red-500">{submitError}</p>}
+
+        <div className="pt-4">
+          <Button
+            type="submit"
+            variant="brand"
+            loading={isSubmitting}
+            disabled={!selectedRole || isSubmitting}
+            className="w-full font-bold text-white hover:bg-orange-600"
+          >
+            Salvar e Continuar
+          </Button>
+        </div>
+      </form>
+    </BaseModal>
   )
 }
 
