@@ -33,6 +33,13 @@ interface EditProfileModalProps {
   userId: string;
 }
 
+// Converte "2026-03-03" para "03/03/2026"
+const formatDateToISO = (dateStr: string) => {
+  if (!dateStr) return '';
+  const [year, month, day] = dateStr.split('-');
+  return `${day}/${month}/${year}`;
+};
+
 const EditProfileModal = ({ isOpen, onClose, userId }: EditProfileModalProps) => {
   const { profile, updateProfile } = useAuth();
   const [loadingCep, setLoadingCep] = useState(false);
@@ -106,63 +113,76 @@ const EditProfileModal = ({ isOpen, onClose, userId }: EditProfileModalProps) =>
 
   // Carrega os dados do usuário ao abrir o modal
   useEffect(() => {
-    if (isOpen && userId) {
-      api.get(`/cadastro/getcadastro/${userId}`).then((response) => {
-        const userData = response.data;
-        const address = parseAddress(userData.endereco);
+  if (isOpen && userId) {
+    api.get(`/cadastro/getcadastro/${userId}`).then((response) => {
+      const userData = response.data;
+      const address = parseAddress(userData.endereco);
 
-        // Preparamos o objeto base com os dados da API
-        const baseData = {
-          ...userData,
-          // Aplicamos as máscaras nos dados que vêm do banco
-          cpf: userData.cpf ? maskCPF(userData.cpf) : '',
-          contato: userData.contato ? maskPhone(userData.contato) : '',
-          cep: userData.cep ? maskCEP(userData.cep) : '',
-          dataNascimento: userData.dataNascimento ? maskDate(userData.dataNascimento) : '',
-        };
+      // 1. Convertemos a data do banco (ISO) para PT-BR
+      const formattedDate = formatDateToISO(userData.dataNascimento);
 
-        if (address) {
-          setAddressWarning(false);
-          reset({
-            ...baseData,
-            ...address,
-          });
-        } else {
-          setAddressWarning(true);
-          reset({
-            ...baseData,
-            rua: '',
-            numero: '',
-            bairro: '',
-            cidade: '',
-            estado: '',
-          });
-        }
-      });
-    }
-  }, [isOpen, userId, reset]);
+      const baseData = {
+        ...userData,
+        // 2. Aplicamos as máscaras nos campos formatados
+        cpf: userData.cpf ? maskCPF(userData.cpf) : '',
+        contato: userData.contato ? maskPhone(userData.contato) : '',
+        cep: userData.cep ? maskCEP(userData.cep) : '',
+        dataNascimento: maskDate(formattedDate), // Agora a máscara recebe 03/03/2026
+      };
+
+      if (address) {
+        reset({ ...baseData, ...address });
+      } else {
+        setAddressWarning(true);
+        reset({
+          ...baseData,
+          rua: '', numero: '', bairro: '', cidade: '', estado: '',
+        });
+      }
+    });
+  }
+}, [isOpen, userId, reset]);
 
   const onSubmit = async (data: ProfileForm) => {
-    const { rua, numero, bairro, cidade, estado, ...rest } = data;
-    const endereco = `${rua}, ${numero} - ${bairro}, ${cidade} - ${estado.toUpperCase()}`;
+  const { rua, numero, bairro, cidade, estado, dataNascimento, ...rest } = data;
 
-    try {
-      await api.put(`/cadastro/updatecadastro/${userId}`, {
-        ...rest,
-        endereco,
-      });
+  // 1. Converte "04/03/2026" (do formulário) para "2026-03-04" (para o backend)
+  // Usamos o split para garantir a ordem correta
+  const dateParts = dataNascimento.split('/');
+  const isoDate = dateParts.length === 3 
+    ? `${dateParts[2]}-${dateParts[1]}-${dateParts[0]}` 
+    : dataNascimento;
 
-      toast.success('Perfil atualizado com sucesso!');
-      if (profile) {
-        const updatedUser = { ...profile, ...rest, endereco };
-        updateProfile(updatedUser);
-      }
-      onClose();
-    } catch (error) {
-      toast.error('Erro ao atualizar o perfil. Tente novamente.');
-      console.error(error);
-    }
+  // 2. Monta o endereço concatenado como o seu backend exige
+  const endereco = `${rua}, ${numero} - ${bairro}, ${cidade} - ${estado.toUpperCase()}`;
+
+  // 3. Removemos as máscaras de CPF, CEP e Telefone para enviar apenas números (opcional, mas recomendado)
+  const cleanData = {
+    ...rest,
+    cpf: rest.cpf.replace(/\D/g, ''),
+    contato: rest.contato.replace(/\D/g, ''),
+    cep: rest.cep.replace(/\D/g, ''),
+    dataNascimento: isoDate, // Data em formato ISO
+    endereco,
   };
+
+  try {
+    await api.put(`/cadastro/updatecadastro/${userId}`, cleanData);
+
+    toast.success('Perfil atualizado com sucesso!');
+    
+    if (profile) {
+      // No estado global, você pode manter a versão formatada ou a limpa, 
+      // dependendo de como o resto do app consome esses dados.
+      updateProfile({ ...profile, ...cleanData });
+    }
+    
+    onClose();
+  } catch (error) {
+    toast.error('Erro ao atualizar o perfil. Tente novamente.');
+    console.error(error);
+  }
+};
 
   return (
     <BaseModal title="Editar Perfil" isOpen={isOpen} onClose={onClose}>
