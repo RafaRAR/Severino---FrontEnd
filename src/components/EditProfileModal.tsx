@@ -110,16 +110,27 @@ const EditProfileModal = ({ isOpen, onClose, userId }: EditProfileModalProps) =>
       api.get(`/cadastro/getcadastro/${userId}`).then((response) => {
         const userData = response.data;
         const address = parseAddress(userData.endereco);
+
+        // Preparamos o objeto base com os dados da API
+        const baseData = {
+          ...userData,
+          // Aplicamos as máscaras nos dados que vêm do banco
+          cpf: userData.cpf ? maskCPF(userData.cpf) : '',
+          contato: userData.contato ? maskPhone(userData.contato) : '',
+          cep: userData.cep ? maskCEP(userData.cep) : '',
+          dataNascimento: userData.dataNascimento ? maskDate(userData.dataNascimento) : '',
+        };
+
         if (address) {
           setAddressWarning(false);
           reset({
-            ...userData,
+            ...baseData,
             ...address,
           });
         } else {
           setAddressWarning(true);
           reset({
-            ...userData,
+            ...baseData,
             rua: '',
             numero: '',
             bairro: '',
