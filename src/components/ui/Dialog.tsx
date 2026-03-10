@@ -1,10 +1,9 @@
 import React, { type ReactNode, useEffect } from 'react';
-import { X, Trash } from 'lucide-react';
+import { X } from 'lucide-react';
 
 interface DialogProps {
   isOpen: boolean;
   onClose?: () => void;
-  onDelete?: () => void;
   children: ReactNode;
   isBlocking?: boolean;
 }
@@ -12,7 +11,6 @@ interface DialogProps {
 export const Dialog: React.FC<DialogProps> = ({
   isOpen,
   onClose,
-  onDelete,
   children,
   isBlocking = false,
 }) => {
@@ -51,14 +49,6 @@ export const Dialog: React.FC<DialogProps> = ({
         className="relative w-full max-w-lg rounded-xl bg-white p-6 shadow-md"
         onClick={(e) => e.stopPropagation()}
       >
-        {onDelete && (
-          <button
-            onClick={onDelete}
-            className="absolute top-3 left-3 rounded-full p-1 text-red-500 hover:bg-red-50 hover:text-red-700"
-          >
-            <Trash size={20} />
-          </button>
-        )}
         {!isBlocking && onClose && (
           <button
             onClick={onClose}
