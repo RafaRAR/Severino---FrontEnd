@@ -1,6 +1,6 @@
 import axios, { AxiosError } from 'axios'
 
-const API_BASE_URL = 'https://severino-backend-lqhl.onrender.com'
+const API_BASE_URL = 'https://severino-backend-lqhl.onrender.com/api'
 const TOKEN_STORAGE_KEY = 'severino_token'
 
 export const api = axios.create({
@@ -20,44 +20,20 @@ api.interceptors.request.use((config) => {
 // e helpers de normalização de resposta/erro.
 
 export interface AuthUser {
-  id: string
-  name: string
-  email: string
-  /** Indica se o perfil está completo (cpf, celular, endereço preenchidos) */
-  profileComplete?: boolean
-  cpf?: string
-  celular?: string
-  tipoPerfil?: 'cliente' | 'prestador'
-  categoria?: string
-  cep?: string
-  cidade?: string
-  bairro?: string
-  estado?: string
-  numero?: string
-  complemento?: string
+  id: string;
+  name: string;
+  email: string;
 }
 
-export interface CepResponse {
-  localidade?: string
-  bairro?: string
-  uf?: string
-  cidade?: string
-  estado?: string
-  erro?: boolean
-  logradouro?: string
-}
-
-export interface CompletarPerfilPayload {
-  tipoPerfil: 'cliente' | 'prestador'
-  cpf: string
-  celular: string
-  cep: string
-  cidade: string
-  bairro: string
-  estado: string
-  numero: string
-  complemento?: string
-  categoria?: string
+export interface CadastroPayload {
+  nome: string;
+  usuarioId: number;
+  cpf: string;
+  dataNascimento: string;
+  contato: string;
+  cep: string;
+  endereco: string;
+  role: string;
 }
 
 export interface AuthResponse {
@@ -74,6 +50,16 @@ export interface RegisterPayload {
   nome: string
   email: string
   senha: string
+}
+
+export interface CepResponse {
+  localidade?: string
+  bairro?: string
+  uf?: string
+  cidade?: string
+  estado?: string
+  erro?: boolean
+  logradouro?: string
 }
 
 function normalizeAuthResponse(
@@ -166,7 +152,7 @@ function toErrorMessage(error: unknown) {
 
 export async function login(payload: LoginPayload): Promise<AuthResponse> {
   try {
-    const { data } = await api.post('/api/Usuario/login', payload)
+    const { data } = await api.post('/Usuario/login', payload)
 
     return normalizeAuthResponse(data, { email: payload.email })
   } catch (error) {
@@ -176,7 +162,7 @@ export async function login(payload: LoginPayload): Promise<AuthResponse> {
 
 export async function register(payload: RegisterPayload): Promise<void> {
   try {
-    await api.post('/api/Usuario/registrar', payload)
+    await api.post('/Usuario/registrar', payload)
   } catch (error) {
     throw new Error(toErrorMessage(error))
   }
@@ -189,7 +175,7 @@ export async function fetchCep(cep: string): Promise<CepResponse> {
   }
 
   try {
-    const { data } = await api.get<CepResponse>(`/api/cep/${digits}`)
+    const { data } = await api.get<CepResponse>(`/cep/${digits}`)
     if (data && typeof data === 'object' && (data as Record<string, unknown>).erro === true) {
       throw new Error('CEP não encontrado.')
     }
@@ -220,15 +206,6 @@ export async function fetchCep(cep: string): Promise<CepResponse> {
   }
 }
 
-export async function getPerfil(): Promise<AuthUser | null> {
-  try {
-    const { data } = await api.get<AuthUser>('/api/Usuario/perfil')
-    return data ?? null
-  } catch {
-    return null
-  }
-}
-
 export interface VerificarEmailPayload {
   email: string;
   codigo: string;
@@ -250,7 +227,7 @@ export interface ResetarSenhaPayload {
 
 export async function verificarEmail(payload: VerificarEmailPayload): Promise<AuthResponse> {
   try {
-    const { data } = await api.post('/api/Usuario/verificar', payload)
+    const { data } = await api.post('/Usuario/verificar', payload)
     return normalizeAuthResponse(data, { email: payload.email })
   } catch (error) {
     throw new Error(toErrorMessage(error))
@@ -259,7 +236,7 @@ export async function verificarEmail(payload: VerificarEmailPayload): Promise<Au
 
 export async function solicitarVerificacao(payload: SolicitarVerificacaoPayload): Promise<void> {
   try {
-    await api.post('/api/Usuario/solicitarverificacao', payload)
+    await api.post('/Usuario/solicitarverificacao', payload)
   } catch (error) {
     throw new Error(toErrorMessage(error))
   }
@@ -267,7 +244,7 @@ export async function solicitarVerificacao(payload: SolicitarVerificacaoPayload)
 
 export async function solicitarReset(payload: SolicitarResetPayload): Promise<void> {
   try {
-    await api.post('/api/Usuario/solicitarreset', payload)
+    await api.post('/Usuario/solicitarreset', payload)
   } catch (error) {
     throw new Error(toErrorMessage(error))
   }
@@ -275,16 +252,7 @@ export async function solicitarReset(payload: SolicitarResetPayload): Promise<vo
 
 export async function resetarSenha(payload: ResetarSenhaPayload): Promise<void> {
   try {
-    await api.post('/api/Usuario/resetar', payload)
-  } catch (error) {
-    throw new Error(toErrorMessage(error))
-  }
-}
-
-export async function completarPerfil(payload: CompletarPerfilPayload): Promise<AuthUser> {
-  try {
-    const { data } = await api.put<AuthUser>('/api/Usuario/perfil', payload)
-    return data
+    await api.post('/Usuario/resetar', payload)
   } catch (error) {
     throw new Error(toErrorMessage(error))
   }
@@ -306,7 +274,7 @@ export async function cadastrar(
   payload: CadastroPayload,
 ): Promise<void> {
   try {
-    await api.post(`/api/cadastro/cadastrar/${usuarioId}`, payload)
+    await api.post(`/cadastro/cadastrar/${usuarioId}`, payload)
   } catch (error) {
     throw new Error(toErrorMessage(error))
   }
@@ -314,7 +282,7 @@ export async function cadastrar(
 
 export async function getCadastro(usuarioId: string): Promise<CadastroPayload> {
   try {
-    const { data } = await api.get(`/api/cadastro/getcadastro/${usuarioId}`)
+    const { data } = await api.get(`/cadastro/getcadastro/${usuarioId}`)
     return data
   } catch (error) {
     throw new Error(toErrorMessage(error))
@@ -326,7 +294,7 @@ export async function updateCadastro(
   payload: Partial<Omit<CadastroPayload, 'usuarioId'>>,
 ): Promise<void> {
   try {
-    await api.put(`/api/cadastro/updatecadastro/${usuarioId}`, payload)
+    await api.put(`/cadastro/updatecadastro/${usuarioId}`, payload)
   } catch (error) {
     throw new Error(toErrorMessage(error))
   }
@@ -359,7 +327,7 @@ export async function createPost(
   payload: PostPayload,
 ): Promise<Post> {
   try {
-    const { data } = await api.post<Post>(`/api/post/postar/${usuarioId}`, payload)
+    const { data } = await api.post<Post>(`/post/postar/${usuarioId}`, payload)
     return data
   } catch (error) {
     throw new Error(toErrorMessage(error))
@@ -368,7 +336,7 @@ export async function createPost(
 
 export async function getAllPosts(): Promise<Post[]> {
   try {
-    const { data } = await api.get<Post[]>('/api/post/getposts')
+    const { data } = await api.get<Post[]>('/post/getposts')
     return data
   } catch (error) {
     throw new Error(toErrorMessage(error))
@@ -377,7 +345,7 @@ export async function getAllPosts(): Promise<Post[]> {
 
 export async function getUserPosts(usuarioId: string): Promise<Post[]> {
   try {
-    const { data } = await api.get<Post[]>(`/api/post/getposts/${usuarioId}`)
+    const { data } = await api.get<Post[]>(`/post/getposts/${usuarioId}`)
     return data
   } catch (error) {
     throw new Error(toErrorMessage(error))
@@ -389,7 +357,7 @@ export async function editPost(
   payload: PostPayload,
 ): Promise<Post> {
   try {
-    const { data } = await api.put<Post>(`/api/post/editar/${idpost}`, payload)
+    const { data } = await api.put<Post>(`/post/editar/${idpost}`, payload)
     return data
   } catch (error) {
     throw new Error(toErrorMessage(error))
@@ -398,7 +366,7 @@ export async function editPost(
 
 export async function deletePost(idpost: string): Promise<void> {
   try {
-    await api.delete(`/api/post/deletarpost/${idpost}`)
+    await api.delete(`/post/deletarpost/${idpost}`)
   } catch (error) {
     throw new Error(toErrorMessage(error))
   }
