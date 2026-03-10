@@ -1,10 +1,10 @@
 import { useState } from 'react';
-import { User } from 'lucide-react';
+import { User, LogOut } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
 import EditProfileModal from '../EditProfileModal';
 
 const Header = () => {
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
 
   const getInitials = (name: string) => {
@@ -23,12 +23,20 @@ const Header = () => {
           <div className="text-2xl font-bold">SeverinoApp</div>
           <div className="flex items-center space-x-4">
             {user ? (
-              <button
-                onClick={() => setIsProfileModalOpen(true)}
-                className="flex items-center justify-center bg-gray-200 rounded-full w-10 h-10 text-blue-900 font-bold"
-              >
-                {getInitials(user.name)}
-              </button>
+              <>
+                <button
+                  onClick={() => setIsProfileModalOpen(true)}
+                  className="flex items-center justify-center bg-gray-200 rounded-full w-10 h-10 text-blue-900 font-bold"
+                >
+                  {getInitials(user.name)}
+                </button>
+                <button
+                  onClick={logout}
+                  className="flex items-center justify-center bg-red-500 hover:bg-red-600 rounded-full w-10 h-10 text-white font-bold"
+                >
+                  <LogOut size={20} />
+                </button>
+              </>
             ) : (
               <User className="text-blue-900" />
             )}
