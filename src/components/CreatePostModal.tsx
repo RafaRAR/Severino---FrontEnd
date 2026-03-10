@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useCallback } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -8,9 +8,7 @@ import { MapPin } from 'lucide-react';
 import {
   createPost,
   fetchCep,
-  getCadastro,
   type PostPayload,
-  type CadastroPayload,
 } from '../services/api';
 import { useAuth } from '../hooks/useAuth';
 import { maskCEP, maskPhone } from '../utils/masks';
@@ -42,10 +40,10 @@ interface CreatePostModalProps {
 }
 
 export const CreatePostModal: React.FC<CreatePostModalProps> = ({ isOpen, onClose, onPostCreated }) => {
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
   const [loadingCep, setLoadingCep] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
-  const [userProfile, setUserProfile] = useState<CadastroPayload | null>(null);
+
 
   const {
     register,
@@ -57,14 +55,6 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({ isOpen, onClos
   } = useForm<PostFormData>({
     resolver: zodResolver(postFormSchema),
   });
-
-  useEffect(() => {
-    if (user?.id) {
-      getCadastro(user.id)
-        .then(setUserProfile)
-        .catch(console.error);
-    }
-  }, [user?.id]);
 
   const lookupCep = useCallback(async (cep: string) => {
     const cleanCep = (cep || '').replace(/\D/g, '');
@@ -91,9 +81,9 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({ isOpen, onClos
   }, [cepValue, lookupCep]);
 
   const handleUseProfileAddress = () => {
-    if (!userProfile) return;
+    if (!profile) return;
 
-    const { cep, endereco, contato } = userProfile;
+    const { cep, endereco, contato } = profile;
 
     setValue('cep', cep, { shouldDirty: true });
     setValue('contato', contato, { shouldDirty: true });
@@ -143,7 +133,7 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({ isOpen, onClos
         <div className="border-t border-gray-200 pt-4">
           <div className="flex justify-between items-center mb-2">
             <h3 className="text-lg font-semibold text-brand-navy">Endereço e Contato</h3>
-            {userProfile && (
+            {profile && (
               <button type="button" onClick={handleUseProfileAddress} className="flex items-center gap-1 text-sm text-brand-orange hover:underline">
                 <MapPin size={16} />
                 Usar meu endereço de cadastro
