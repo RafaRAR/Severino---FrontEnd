@@ -372,5 +372,14 @@ export async function deletePost(idpost: string): Promise<void> {
   }
 }
 
+export async function getPostById(id: string | number): Promise<Post> {
+  try {
+    const { data } = await api.get<Post>(`/post/getpost/${id}`);
+    return data;
+  } catch (error) {
+    throw new Error(toErrorMessage(error));
+  }
+}
+
 export { TOKEN_STORAGE_KEY }
 
