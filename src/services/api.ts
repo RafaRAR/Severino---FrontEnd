@@ -33,7 +33,6 @@ export interface CadastroPayload {
   contato: string;
   cep: string;
   endereco: string;
-  role: string;
 }
 
 export interface AuthResponse {
@@ -258,31 +257,34 @@ export async function resetarSenha(payload: ResetarSenhaPayload): Promise<void> 
   }
 }
 
-export interface CadastroPayload {
-  nome: string
-  usuarioId: number
-  cpf: string
-  dataNascimento: string
-  contato: string
-  cep: string
-  endereco: string
-  role: string
-}
-
 export async function cadastrar(
   usuarioId: string,
-  payload: CadastroPayload,
+  formData: FormData,
 ): Promise<void> {
   try {
-    await api.post(`/cadastro/cadastrar/${usuarioId}`, payload)
+    await api.post(`/cadastro/cadastrar/${usuarioId}`, formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    })
   } catch (error) {
     throw new Error(toErrorMessage(error))
   }
 }
 
-export async function getCadastro(usuarioId: string): Promise<CadastroPayload> {
+export interface CadastroResponse {
+  id: number;
+  usuarioId: number;
+  nome: string;
+  imagemUrl?: string;
+  cpf: string;
+  dataNascimento: string;
+  contato: string;
+  cep: string;
+  endereco: string;
+}
+
+export async function getCadastro(usuarioId: string): Promise<CadastroResponse> {
   try {
-    const { data } = await api.get(`/cadastro/getcadastro/${usuarioId}`)
+    const { data } = await api.get<CadastroResponse>(`/cadastro/getcadastro/${usuarioId}`)
     return data
   } catch (error) {
     throw new Error(toErrorMessage(error))
@@ -308,6 +310,8 @@ export interface PostPayload {
   endereco: string;
   cep: string;
   contato: string;
+  role?: string;
+  impulsionar?: boolean;
 }
 
 export interface Post extends PostPayload {
@@ -315,19 +319,23 @@ export interface Post extends PostPayload {
   usuarioId: number;
   nomeUsuario: string;
   dataCriacao: string;
+  autorImagemUrl?: string;
+  imagemUrl?: string;
+  impulsionar?: boolean;
+  role?: string;
   // Optional fields to match ServiceCard
-  urgente?: boolean;
   categoria?: string;
   comentarios?: number;
-  foto?: string;
 }
 
 export async function createPost(
   usuarioId: string,
-  payload: PostPayload,
+  formData: FormData,
 ): Promise<Post> {
   try {
-    const { data } = await api.post<Post>(`/post/postar/${usuarioId}`, payload)
+    const { data } = await api.post<Post>(`/post/postar/${usuarioId}`, formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    })
     return data
   } catch (error) {
     throw new Error(toErrorMessage(error))

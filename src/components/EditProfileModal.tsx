@@ -189,9 +189,6 @@ const EditProfileModal = ({ isOpen, onClose, userId }: EditProfileModalProps) =>
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
         <div className="flex justify-between items-center bg-gray-100 p-3 rounded-lg">
           <p className="text-sm font-medium text-gray-600">Sua conta:</p>
-          <span className="text-sm font-bold text-brand-navy bg-blue-100 px-4 py-1 rounded-full">
-            {profile?.role}
-          </span>
         </div>
 
         <fieldset className="space-y-4 pt-2" disabled={isSubmitting}>
@@ -307,8 +304,6 @@ const EditProfileModal = ({ isOpen, onClose, userId }: EditProfileModalProps) =>
         {addressWarning && !loadingCep && (
           <p className="text-orange-500">Digite seu CEP para alterar o endereço.</p>
         )}
-
-        <input type="hidden" {...register('role')} value={profile?.role} />
 
         <div className="pt-4 flex justify-end space-x-4">
           <Button type="button" variant="outline" onClick={onClose} className="font-bold">

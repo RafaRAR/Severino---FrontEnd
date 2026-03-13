@@ -1,12 +1,12 @@
-import { useState, useCallback, useEffect, type ReactNode } from 'react'
+import { useState, useCallback, useEffect,  useRef } from 'react'
 import { useForm, Controller } from 'react-hook-form'
 import { z } from 'zod'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { User, Wrench } from 'lucide-react'
+import { User } from 'lucide-react'
 import { BaseModal } from './ui/BaseModal'
 import { Button } from './ui/Button'
 import { Input } from './ui/Input'
-import { cadastrar, fetchCep, type CadastroPayload } from '../services/api'
+import { cadastrar, fetchCep } from '../services/api'
 import { useAuth } from '../hooks/useAuth'
 import { maskCPF, maskCEP, maskPhone } from '../utils/masks'
 
@@ -37,11 +37,9 @@ const profileSchema = z.object({
   bairro: z.string().min(1, 'Informe o bairro'),
   cidade: z.string().min(1, 'Informe a cidade'),
   estado: z.string().length(2, 'UF deve ter 2 letras'),
-  role: z.enum(['Cliente', 'Prestador']),
 })
 
 type ProfileFormData = z.infer<typeof profileSchema>
-type Role = 'Cliente' | 'Prestador'
 
 interface CompleteProfileModalProps {
   isOpen: boolean
@@ -51,9 +49,11 @@ interface CompleteProfileModalProps {
 
 export function CompleteProfileModal({ isOpen, onClose }: CompleteProfileModalProps) {
   const { user, updateProfile } = useAuth()
-  const [selectedRole, setSelectedRole] = useState<Role | null>(null)
   const [submitError, setSubmitError] = useState<string | null>(null)
   const [loadingCep, setLoadingCep] = useState(false)
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const {
     control,
@@ -64,7 +64,6 @@ export function CompleteProfileModal({ isOpen, onClose }: CompleteProfileModalPr
     clearErrors,
     watch,
     reset,
-    trigger,
     setFocus,
     formState: { errors, isSubmitting },
   } = useForm<ProfileFormData>({
@@ -89,11 +88,17 @@ export function CompleteProfileModal({ isOpen, onClose }: CompleteProfileModalPr
     }
   }, [user, setValue])
 
-  const handleRoleSelect = (role: Role) => {
-    setSelectedRole(role)
-    setValue('role', role, { shouldValidate: true, shouldDirty: true })
-    trigger('role');
-  }
+  const handleImageChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+        setImageFile(file);
+        const reader = new FileReader();
+        reader.onloadend = () => {
+            setPreviewUrl(reader.result as string);
+        };
+        reader.readAsDataURL(file);
+    }
+  };
 
   const cepValue = watch('cep')
   const handleCepBlur = useCallback(async () => {
@@ -125,59 +130,77 @@ export function CompleteProfileModal({ isOpen, onClose }: CompleteProfileModalPr
     }
     setSubmitError(null)
 
-    const { rua, numero, bairro, cidade, estado, ...restOfData } = data
-    const enderecoCompleto = `${rua}, ${numero} - ${bairro}, ${cidade} - ${estado.toUpperCase()}`
+    const formData = new FormData();
+    const enderecoCompleto = `${data.rua}, ${data.numero} - ${data.bairro}, ${data.cidade} - ${data.estado.toUpperCase()}`;
 
-    const payload: CadastroPayload = {
-      ...restOfData,
-      endereco: enderecoCompleto,
-      cpf: stripDigits(data.cpf),
-      contato: stripDigits(data.contato),
-      cep: stripDigits(data.cep),
-      usuarioId: parseInt(user.id, 10),
+    formData.append('nome', data.nome);
+    formData.append('cpf', stripDigits(data.cpf));
+    formData.append('dataNascimento', data.dataNascimento);
+    formData.append('contato', stripDigits(data.contato));
+    formData.append('cep', stripDigits(data.cep));
+    formData.append('endereco', enderecoCompleto);
+    
+    if (imageFile) {
+        formData.append('Imagem', imageFile);
     }
 
     try {
-      await cadastrar(user.id, payload)
+      await cadastrar(user.id, formData);
+      
+      const { rua, numero, bairro, cidade, estado, ...restOfData } = data;
+      const profileForUpdate = {
+        ...restOfData,
+        endereco: enderecoCompleto,
+        cpf: stripDigits(data.cpf),
+        contato: stripDigits(data.contato),
+        cep: stripDigits(data.cep),
+        usuarioId: parseInt(user.id, 10),
+      };
+
       if (user) {
-        updateProfile(payload)
+        updateProfile(profileForUpdate);
       }
-      reset()
-      onClose()
+      reset();
+      onClose();
     } catch (e) {
-      setSubmitError(e instanceof Error ? e.message : 'Não foi possível completar o perfil.')
+      setSubmitError(e instanceof Error ? e.message : 'Não foi possível completar o perfil.');
     }
   }
 
 
   return (
     <BaseModal title="Complete seu Perfil" isOpen={isOpen} isBlocking>
-      <p className="mb-6 text-center text-gray-500 -mt-4">
-        Primeiro, nos diga que tipo de conta você precisa.
-      </p>
-
+        <p className="mb-6 text-center text-gray-500 -mt-4">
+          Preencha seus dados para podermos começar.
+        </p>
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
-        <div>
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-            <RoleCard
-              icon={<User className="size-7" />}
-              title="Sou Cliente"
-              description="Quero contratar profissionais."
-              onClick={() => handleRoleSelect('Cliente')}
-              selected={selectedRole === 'Cliente'}
-            />
-            <RoleCard
-              icon={<Wrench className="size-7" />}
-              title="Sou Prestador"
-              description="Quero oferecer meus serviços."
-              onClick={() => handleRoleSelect('Prestador')}
-              selected={selectedRole === 'Prestador'}
-            />
-          </div>
-          {errors.role && <p className="mt-2 text-xs text-red-500">{errors.role.message}</p>}
+        <div className="flex flex-col items-center space-y-4">
+            <div className="relative group">
+                <div
+                    className="h-28 w-28 rounded-full bg-gray-200 flex items-center justify-center cursor-pointer overflow-hidden border-2 border-transparent group-hover:border-brand-orange transition-all"
+                    onClick={() => fileInputRef.current?.click()}
+                >
+                    {previewUrl ? (
+                        <img src={previewUrl} alt="Avatar Preview" className="h-full w-full object-cover" />
+                    ) : (
+                        <User size={48} className="text-gray-500" />
+                    )}
+                    <div className="absolute inset-0 bg-black bg-opacity-40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                        <p className="text-white text-sm font-semibold">Alterar</p>
+                    </div>
+                </div>
+                <input
+                    type="file"
+                    ref={fileInputRef}
+                    onChange={handleImageChange}
+                    accept="image/*"
+                    className="hidden"
+                />
+            </div>
+            <p className="text-sm text-gray-500 -mt-2">Foto de Perfil (Opcional)</p>
         </div>
-
-        <fieldset disabled={!selectedRole || isSubmitting} className="space-y-4 pt-2">
+        
+        <fieldset disabled={isSubmitting} className="space-y-4 pt-2">
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
             <Input
               label="Nome Completo"
@@ -291,7 +314,7 @@ export function CompleteProfileModal({ isOpen, onClose }: CompleteProfileModalPr
             type="submit"
             variant="brand"
             loading={isSubmitting}
-            disabled={!selectedRole || isSubmitting}
+            disabled={isSubmitting}
             className="w-full font-bold text-white hover:bg-orange-600"
           >
             Salvar e Continuar
@@ -299,32 +322,5 @@ export function CompleteProfileModal({ isOpen, onClose }: CompleteProfileModalPr
         </div>
       </form>
     </BaseModal>
-  )
-}
-
-interface RoleCardProps {
-  icon: ReactNode
-  title: string
-  description: string
-  onClick: () => void
-  selected: boolean
-}
-
-function RoleCard({ icon, title, description, onClick, selected }: RoleCardProps) {
-  const baseClasses =
-    'group flex h-full flex-col items-start rounded-lg p-4 text-left transition duration-200';
-  const selectedClasses = 'border-2 border-brand-orange bg-orange-50';
-  const unselectedClasses = 'border border-gray-300 hover:border-gray-400';
-
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={`${baseClasses} ${selected ? selectedClasses : unselectedClasses}`}
-    >
-      <div className="mb-3">{icon}</div>
-      <h4 className="mb-1 text-base font-bold text-brand-navy">{title}</h4>
-      <p className="text-sm text-gray-600">{description}</p>
-    </button>
   )
 }

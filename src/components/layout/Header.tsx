@@ -1,10 +1,12 @@
 import { useState } from 'react';
-import { User, LogOut } from 'lucide-react';
+import { LogOut } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
 import EditProfileModal from '../EditProfileModal';
+import { Button } from '../ui/Button';
 
 const Header = () => {
-  const { user, logout } = useAuth();
+  const { user, logout, profile } = useAuth();
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
 
   const getInitials = (name: string) => {
@@ -20,15 +22,25 @@ const Header = () => {
     <>
       <header className="bg-brand-navy p-4 text-white shadow-md">
         <div className="container mx-auto px-4 py-2 flex justify-between items-center">
-          <div className="text-2xl font-bold">SeverinoApp</div>
+          <Link to="/" className="text-2xl font-bold">
+            SeverinoApp
+          </Link>
           <div className="flex items-center space-x-4">
             {user ? (
               <>
                 <button
                   onClick={() => setIsProfileModalOpen(true)}
-                  className="flex items-center justify-center bg-gray-200 rounded-full w-10 h-10 text-blue-900 font-bold"
+                  className="flex items-center justify-center bg-gray-200 rounded-full w-10 h-10 text-blue-900 font-bold overflow-hidden"
                 >
-                  {getInitials(user.name)}
+                  {profile?.imagemUrl ? (
+                    <img
+                      src={profile.imagemUrl}
+                      alt={user.name}
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    getInitials(user.name)
+                  )}
                 </button>
                 <button
                   onClick={logout}
@@ -38,7 +50,14 @@ const Header = () => {
                 </button>
               </>
             ) : (
-              <User className="text-blue-900" />
+              <div className="flex items-center space-x-2">
+                <Link to="/login">
+                  <Button variant="ghost">Entrar</Button>
+                </Link>
+                <Link to="/registrar">
+                  <Button variant="brand">Cadastrar</Button>
+                </Link>
+              </div>
             )}
           </div>
         </div>

@@ -3,6 +3,7 @@ import type {
   AuthResponse,
   AuthUser,
   CadastroPayload,
+  CadastroResponse,
   LoginPayload,
   RegisterPayload,
 } from '../services/api'
@@ -17,7 +18,7 @@ interface AuthContextValue {
   user: AuthUser | null
   token: string | null
   isAuthenticated: boolean
-  profile: CadastroPayload | null
+  profile: CadastroResponse | null
   isProfileComplete: boolean
   login: (token: string, user: AuthUser) => void
   loginWithCredentials: (payload: LoginPayload) => Promise<void>
@@ -35,13 +36,13 @@ interface AuthProviderProps {
 export function AuthProvider({ children }: AuthProviderProps) {
   const [user, setUser] = useState<AuthUser | null>(null)
   const [token, setToken] = useState<string | null>(null)
-  const [profile, setProfile] = useState<CadastroPayload | null>(null)
+  const [profile, setProfile] = useState<CadastroResponse | null>(null)
   const [isProfileComplete, setProfileComplete] = useState(true)
 
   const fetchProfile = useCallback(async (userId: string) => {
     try {
       const userProfile = await getCadastro(userId)
-      if (userProfile && userProfile.role) {
+      if (userProfile) {
         setProfile(userProfile)
         setProfileComplete(true)
         localStorage.setItem('severino_profile', JSON.stringify(userProfile))
@@ -66,9 +67,9 @@ export function AuthProvider({ children }: AuthProviderProps) {
         setToken(storedToken)
         setUser(parsedUser)
         if (storedProfile) {
-          const parsedProfile: CadastroPayload = JSON.parse(storedProfile)
+          const parsedProfile: CadastroResponse = JSON.parse(storedProfile)
           setProfile(parsedProfile)
-          setProfileComplete(!!parsedProfile.role)
+          setProfileComplete(!!parsedProfile)
         } else {
           fetchProfile(parsedUser.id)
         }
@@ -110,10 +111,10 @@ export function AuthProvider({ children }: AuthProviderProps) {
     localStorage.removeItem('severino_profile')
   }
 
-  function updateProfile(newProfile: CadastroPayload) {
-    setProfile(newProfile)
-    setProfileComplete(true)
-    localStorage.setItem('severino_profile', JSON.stringify(newProfile))
+  function updateProfile(_newProfile: CadastroPayload) {
+    if (user) {
+      fetchProfile(user.id)
+    }
   }
 
   return (

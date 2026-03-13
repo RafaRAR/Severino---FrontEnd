@@ -1,27 +1,41 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { ServiceCard } from '../components/ui/ServiceCard';
-import { BaseModal } from '../components/ui/BaseModal';
-import { Plus, Image, Phone, Loader2, Trash2, Edit, User, MapPin, Calendar, Tag } from 'lucide-react';
-import { deletePost, getAllPosts, type Post } from '../services/api';
+import { ServiceDetailModal } from '../components/ServiceDetailModal';
 import { CreatePostModal } from '../components/CreatePostModal';
-import { EditPostModal } from '../components/EditPostModal';
+import { getAllPosts, type Post as ApiPost, type Post } from '../services/api';
 import { useAuth } from '../hooks/useAuth';
-import { toast } from 'react-toastify';
-import { formatDistanceToNow } from '../utils/date';
+import { Loader2, Camera, Wrench } from 'lucide-react';
 
-// Main Home Component
+// Adicionando o tipo para os posts e um tipo local para incluir a aba
+type PostType = 'Cliente' | 'Prestador';
+
+const UserAvatar = ({ user }: { user: { nome: string; foto?: string } }) => {
+  const initials = user.nome.split(' ').map((n) => n[0]).slice(0, 2).join('');
+  return (
+    <div className="w-12 h-12 rounded-full bg-gray-200 flex-shrink-0 flex items-center justify-center font-bold text-gray-600">
+      {user.foto ? (
+        <img src={user.foto} alt={user.nome} className="w-full h-full rounded-full object-cover" />
+      ) : (
+        initials
+      )}
+    </div>
+  );
+};
+
 export const Home: React.FC = () => {
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
+  const navigate = useNavigate();
   const [posts, setPosts] = useState<Post[]>([]);
-  const [selectedPost, setSelectedPost] = useState<Post | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [isViewModalOpen, setIsViewModalOpen] = useState(false);
+  const [selectedPost, setSelectedPost] = useState<Post | null>(null);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
-  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState<PostType>('Cliente');
+  const [selectedRoleForPost, setSelectedRoleForPost] = useState<'Cliente' | 'Prestador' | null>(null);
 
   const fetchPosts = useCallback(async () => {
+    setIsLoading(true);
     try {
-      // Don't set loading to true here to avoid flickering on re-fetch
       const fetchedPosts = await getAllPosts();
       setPosts(fetchedPosts.sort((a, b) => new Date(b.dataCriacao).getTime() - new Date(a.dataCriacao).getTime()));
     } catch (error) {
@@ -32,144 +46,122 @@ export const Home: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    setIsLoading(true);
     fetchPosts();
   }, [fetchPosts]);
 
-  const handleCardClick = (post: Post) => {
-    setSelectedPost(post);
-    setIsViewModalOpen(true);
+  const handleCreatePostClick = (role: 'Cliente' | 'Prestador') => {
+    if (user) {
+      setSelectedRoleForPost(role);
+      setIsCreateModalOpen(true);
+    } else {
+      alert('Faça login para publicar na plataforma.');
+      navigate('/login');
+    }
   };
 
-  const handleCloseViewModal = () => {
-    setIsViewModalOpen(false);
+  const handleCardClick = (post: Post) => {
+    setSelectedPost(post);
+  };
+
+  const handleCloseDetailModal = () => {
     setSelectedPost(null);
   };
 
   const handlePostCreated = () => {
     setIsCreateModalOpen(false);
+    setSelectedRoleForPost(null);
     fetchPosts();
   };
 
-  const handlePostUpdated = () => {
-    setIsEditModalOpen(false);
-    fetchPosts();
-  };
+  const handleCloseCreateModal = () => {
+    setIsCreateModalOpen(false);
+    setSelectedRoleForPost(null);
+  }
 
-  const handleOpenEditModal = () => {
-    setIsViewModalOpen(false);
-    setIsEditModalOpen(true);
-  };
-
-  const handleDeletePost = async () => {
-    if (!selectedPost || !user) return;
-
-    // Verificar se o post pertence ao usuário logado
-    if (selectedPost.usuarioId !== parseInt(user.id, 10)) {
-      toast.error('Você só pode deletar seus próprios posts');
-      return;
-    }
-
-    if (window.confirm('Tem certeza que deseja deletar este anúncio?')) {
-      try {
-        await deletePost(selectedPost.id.toString());
-        setPosts(prevPosts => prevPosts.filter(post => post.id !== selectedPost.id));
-        toast.success('Anúncio deletado com sucesso!');
-        handleCloseViewModal();
-      } catch (error) {
-        console.error('Erro ao deletar post:', error);
-        toast.error('Erro ao deletar o anúncio.');
-      }
-    }
-  };
-
-  const cleanPhoneNumber = (phone: string) => phone.replace(/\D/g, '');
+  const filteredPosts = posts.filter(post => post.role === activeTab);
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <main className="container mx-auto p-4">
-        <div className="space-y-4">
-          {isLoading ? (
-            <div className="flex justify-center items-center p-10">
-              <Loader2 className="animate-spin text-brand-orange" size={40} />
-              <p className="ml-4 text-lg text-gray-600">Carregando anúncios...</p>
+      <main className="container mx-auto p-4 sm:p-6 lg:p-8">
+
+        {/* Create Post Trigger */}
+        <div className="bg-white shadow-sm rounded-xl p-4 mb-6">
+          <div className="flex items-center gap-4">
+            {user ? <UserAvatar user={{ nome: user.name, foto: profile?.imagemUrl || undefined }} /> : <div className="w-12 h-12 rounded-full bg-gray-300" />}
+            <div
+              className="bg-gray-100 text-gray-500 text-left w-full py-3 px-4 rounded-full"
+            >
+              {user ? `Qual problema você precisa resolver hoje, ${user.name.split(' ')[0]}?` : 'Qual problema você precisa resolver hoje?'}
             </div>
-          ) : (
-            posts.map((post) => (
+          </div>
+          <div className="border-t border-gray-100 my-3"></div>
+          <div className="flex justify-around">
+            <button className="flex items-center gap-2 text-gray-600 hover:bg-gray-100 p-2 rounded-lg transition" onClick={() => handleCreatePostClick('Cliente')}>
+              <Camera size={20} className="text-red-500" />
+              <span>Pedir Ajuda</span>
+            </button>
+            <button className="flex items-center gap-2 text-gray-600 hover:bg-gray-100 p-2 rounded-lg transition" onClick={() => handleCreatePostClick('Prestador')}>
+              <Wrench size={20} className="text-blue-500" />
+              <span>Oferecer Serviço</span>
+            </button>
+          </div>
+        </div>
+
+        {/* Tabs */}
+        <div className="mb-6 border-b border-gray-200">
+          <nav className="flex space-x-4" aria-label="Tabs">
+            <button
+              onClick={() => setActiveTab('Cliente')}
+              className={`px-3 py-2 font-medium text-sm rounded-t-lg transition-colors duration-200 ease-in-out ${activeTab === 'Cliente'
+                ? 'border-b-2 border-brand-orange text-brand-orange'
+                : 'text-gray-500 hover:text-gray-700'
+                }`}
+            >
+              Pedidos de Ajuda
+            </button>
+            <button
+              onClick={() => setActiveTab('Prestador')}
+              className={`px-3 py-2 font-medium text-sm rounded-t-lg transition-colors duration-200 ease-in-out ${activeTab === 'Prestador'
+                ? 'border-b-2 border-brand-orange text-brand-orange'
+                : 'text-gray-500 hover:text-gray-700'
+                }`}
+            >
+              Profissionais
+            </button>
+          </nav>
+        </div>
+
+
+        {/* Posts Feed */}
+        {isLoading ? (
+          <div className="flex justify-center items-center p-10">
+            <Loader2 className="animate-spin text-orange-500" size={40} />
+            <p className="ml-4 text-lg text-gray-600">Carregando...</p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {filteredPosts.map((post) => (
               <ServiceCard
                 key={post.id}
                 post={post}
                 onClick={() => handleCardClick(post)}
               />
-            ))
-          )}
-        </div>
+            ))}
+          </div>
+        )}
       </main>
 
-      <button
-        onClick={() => setIsCreateModalOpen(true)}
-        className="fixed bottom-8 right-8 flex items-center justify-center rounded-full bg-brand-orange p-4 font-bold text-white shadow-lg transition-colors hover:bg-orange-600"
-      >
-        <Plus size={24} />
-      </button>
-
-      {selectedPost && (
-        <BaseModal title={selectedPost.titulo} isOpen={isViewModalOpen} onClose={handleCloseViewModal}>
-          <div className="bg-gray-200 mb-4 flex h-64 items-center justify-center rounded-lg">
-            <Image size={80} className="text-gray-400" />
-          </div>
-          <p className="mb-4 text-gray-600 whitespace-pre-wrap break-words">{selectedPost.conteudo}</p>
-
-          <div className="grid grid-cols-2 gap-4 text-sm text-gray-700 mb-4">
-            <div className="flex items-center gap-2"><User size={16} /> <span>{selectedPost.nomeUsuario}</span></div>
-            <div className="flex items-center gap-2"><MapPin size={16} /> <span>{selectedPost.endereco}</span></div>
-            <div className="flex items-center gap-2"><Calendar size={16} /> <span>{formatDistanceToNow(selectedPost.dataCriacao)}</span></div>
-            {selectedPost.categoria && <div className="flex items-center gap-2"><Tag size={16} /> <span>{selectedPost.categoria}</span></div>}
-          </div>
-
-          <div className="flex flex-col space-y-2">
-            <a
-              href={`https://wa.me/55${cleanPhoneNumber(selectedPost.contato)}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex w-full items-center justify-center rounded bg-green-500 py-2 px-4 font-bold text-white hover:bg-green-600"
-            >
-              <Phone size={20} className="mr-2" />
-              Chamar no WhatsApp
-            </a>
-            {user && selectedPost.usuarioId === parseInt(user.id, 10) && (
-              <div className="flex gap-2">
-                <button
-                  onClick={handleOpenEditModal}
-                  className="flex w-full items-center justify-center rounded bg-blue-500 py-2 px-4 font-bold text-white hover:bg-blue-600"
-                >
-                  <Edit size={20} className="mr-2" />
-                  Editar Anúncio
-                </button>
-                <button
-                  onClick={handleDeletePost}
-                  className="flex w-full items-center justify-center rounded bg-red-500 py-2 px-4 font-bold text-white hover:bg-red-600"
-                >
-                  <Trash2 size={20} className="mr-2" />
-                  Deletar Anúncio
-                </button>
-              </div>
-            )}
-          </div>
-        </BaseModal>
-      )}
-
-      <CreatePostModal
-        isOpen={isCreateModalOpen}
-        onClose={() => setIsCreateModalOpen(false)}
-        onPostCreated={handlePostCreated}
+      <ServiceDetailModal
+        post={selectedPost}
+        onClose={handleCloseDetailModal}
       />
-      {selectedPost && (
-        <EditPostModal
-          isOpen={isEditModalOpen}
-          onClose={() => setIsEditModalOpen(false)}
-          onPostUpdated={handlePostUpdated}
-          post={selectedPost}
+
+      {isCreateModalOpen && (
+        <CreatePostModal
+          isOpen={isCreateModalOpen}
+          onClose={handleCloseCreateModal}
+          onPostCreated={handlePostCreated}
+          roleSelecionada={selectedRoleForPost!}
         />
       )}
     </div>

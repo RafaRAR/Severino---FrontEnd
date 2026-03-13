@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { useAuth } from './hooks/useAuth';
 import { LoginPage } from './pages/Login';
 import { RegisterPage } from './pages/Register';
@@ -11,17 +11,17 @@ import Header from './components/layout/Header';
 import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 
-function PrivateRoute({ children }: { children: React.ReactNode }) {
-  const { isAuthenticated } = useAuth();
-  return isAuthenticated ? (
-    <>
-      <Header />
-      {children}
-    </>
-  ) : (
-    <Navigate to="/login" />
-  );
-}
+// function PrivateRoute({ children }: { children: React.ReactNode }) {
+//   const { isAuthenticated } = useAuth();
+//   return isAuthenticated ? (
+//     <>
+//       <Header />
+//       {children}
+//     </>
+//   ) : (
+//     <Navigate to="/login" />
+//   );
+// }
 
 export function App() {
   const { isAuthenticated, isProfileComplete } = useAuth();
@@ -48,9 +48,10 @@ export function App() {
         <Route
           path="/"
           element={
-            <PrivateRoute>
+            <>
+              <Header />
               <Home />
-            </PrivateRoute>
+            </>
           }
         />
       </Routes>

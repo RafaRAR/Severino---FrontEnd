@@ -1,0 +1,121 @@
+import React from 'react';
+import { Link } from 'react-router-dom';
+import { BaseModal } from './ui/BaseModal';
+import { formatDate } from '../utils/date';
+import { MessageSquare, Paperclip, Send } from 'lucide-react';
+import { Button } from './ui/Button';
+import type { Post } from '../services/api';
+import { useAuth } from '../hooks/useAuth';
+
+interface ServiceDetailModalProps {
+  post: Post | null;
+  onClose: () => void;
+}
+
+const UserAvatar = ({ user, size = 'md' }: { user: { nomeUsuario: string; autorImagemUrl?: string }, size?: 'md' | 'lg' }) => {
+  const initials = user.nomeUsuario
+    .split(' ')
+    .map((n) => n[0])
+    .slice(0, 2)
+    .join('');
+
+  const sizeClasses = size === 'lg' ? 'w-16 h-16 text-2xl' : 'w-10 h-10';
+
+  return (
+    <div className={`rounded-full bg-gray-200 flex items-center justify-center font-bold text-gray-600 ${sizeClasses}`}>
+      {user.autorImagemUrl ? (
+        <img src={user.autorImagemUrl} alt={user.nomeUsuario} className="w-full h-full rounded-full object-cover" />
+      ) : (
+        initials
+      )}
+    </div>
+  );
+};
+
+export const ServiceDetailModal: React.FC<ServiceDetailModalProps> = ({ post, onClose }) => {
+  const { user } = useAuth();
+  if (!post) return null;
+
+  return (
+    <BaseModal isOpen={!!post} onClose={onClose} title={post.titulo}>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+        {/* Left Column */}
+        <div className="md:col-span-2 pr-4">
+          <div className="flex items-center gap-4 mb-6">
+            <UserAvatar user={post} size="lg" />
+            <div>
+              <p className="font-bold text-xl text-gray-800">{post.nomeUsuario}</p>
+              <p className="text-sm text-gray-500">{formatDate(post.dataCriacao)}</p>
+            </div>
+          </div>
+          <p className="text-gray-700 whitespace-pre-wrap break-words">{post.conteudo}</p>
+        </div>
+
+        {/* Right Column */}
+        <div className="flex flex-col gap-4">
+          {post.imagemUrl && (
+            <div className="w-full h-48 bg-gray-100 rounded-lg overflow-hidden">
+              <img src={post.imagemUrl} alt={post.titulo} className="w-full h-full object-cover" />
+            </div>
+          )}
+
+          <div className="flex flex-col gap-2">
+            {post.impulsionar && (
+              <span className="bg-red-100 text-red-800 text-sm font-medium mr-2 px-2.5 py-0.5 rounded-full w-fit">Urgente</span>
+            )}
+            {post.categoria && (
+              <span className="bg-teal-100 text-teal-800 text-sm font-medium mr-2 px-2.5 py-0.5 rounded-full w-fit">
+                Categoria: {post.categoria}
+              </span>
+            )}
+            <div className="flex items-center gap-1 text-gray-600">
+              <MessageSquare size={16} />
+              <span className="text-sm">{post.comentarios || 0} comentários</span>
+            </div>
+          </div>
+
+          {/* Comments Section */}
+          <div className="mt-4 pt-4 border-t">
+            <h4 className="font-semibold text-gray-800 mb-2">Comentários</h4>
+            <div className="flex flex-col gap-2 mb-4">
+              <div className='bg-gray-100 p-2 rounded-lg'>
+                <p className='text-xs font-bold'>José</p>
+                <p className='text-sm '>Gostei, muito bom!</p>
+              </div>
+            </div>
+
+            {user ? (
+              <div className="relative">
+                <input
+                  type="text"
+                  placeholder="Adicione um comentário..."
+                  className="w-full border-gray-300 rounded-lg p-2 pr-20 text-sm"
+                />
+                <div className="absolute inset-y-0 right-0 flex items-center pr-2">
+                  <button className="p-1 text-gray-500 hover:text-gray-700"><Paperclip size={18} /></button>
+                  <button className="p-1 text-gray-500 hover:text-gray-700"><Send size={18} /></button>
+                </div>
+              </div>
+            ) : (
+              <div className="text-center p-4 bg-gray-100 rounded-lg">
+                <p className="text-sm text-gray-700 mb-2">Faça login para dar um lance ou comentar.</p>
+                <Link to="/login">
+                  <Button variant="primary" className="w-full">
+                    Entrar
+                  </Button>
+                </Link>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Footer */}
+      <div className="mt-8 pt-6 border-t flex justify-end">
+        <Button>
+          Entrar em Contato
+        </Button>
+      </div>
+    </BaseModal>
+  );
+};

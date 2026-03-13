@@ -35,3 +35,15 @@ export function formatDistanceToNow(dateString: string): string {
     }
     return `há ${Math.floor(seconds)} segundos`;
 }
+
+export const formatDate = (dateString: string): string => {
+  const date = new Date(dateString);
+  // Using UTC to avoid timezone issues
+  const options: Intl.DateTimeFormatOptions = {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+    timeZone: 'UTC',
+  };
+  return date.toLocaleDateString('pt-BR', options).replace(/ de/g, '');
+};
