@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { ServiceCard } from '../components/ui/ServiceCard';
 import { ServiceDetailModal } from '../components/ServiceDetailModal';
 import { CreatePostModal } from '../components/CreatePostModal';
-import { getAllPosts, type Post as ApiPost, type Post } from '../services/api';
+import { getAllPosts, type Post } from '../services/api';
 import { useAuth } from '../hooks/useAuth';
 import { Loader2, Camera, Wrench } from 'lucide-react';
 
