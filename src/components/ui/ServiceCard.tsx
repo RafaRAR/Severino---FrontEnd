@@ -7,8 +7,8 @@ import type { Post as ApiPost } from '../../services/api';
 // Extensão do tipo Post (mantido do componente 1)
 interface Post extends ApiPost {
   type?: 'pedidos' | 'profissionais';
-  // Assumindo propriedades baseadas no uso do componente 1:
-  localizacao?: string; 
+  // Assumindo propriedades baseadas na utilização do componente 1:
+  localizacao?: string;
 }
 
 interface ServiceCardProps {
@@ -88,12 +88,12 @@ export const ServiceCard: React.FC<ServiceCardProps> = ({ post, onClick, index =
           <span className="text-sm font-medium text-foreground">{post.nomeUsuario}</span>
           <span className="text-xs text-muted-foreground ml-auto">{formatDate(post.dataCriacao)}</span>
         </div>
-        
+
         {renderBadge()}
-        
+
         <h3 className="font-display font-bold text-foreground mb-1 line-clamp-1">{post.titulo}</h3>
         <p className="text-sm text-muted-foreground line-clamp-3 mb-3">{post.conteudo}</p>
-        
+
         {/* Categoria original adaptada ao final do texto, caso exista */}
         {post.categoria && (
           <div className="mt-auto">
@@ -109,7 +109,7 @@ export const ServiceCard: React.FC<ServiceCardProps> = ({ post, onClick, index =
         <span className="text-xs text-muted-foreground flex items-center gap-1">
           <MapPin className="w-3 h-3" /> {post.localizacao || 'Remoto'}
         </span>
-        
+
         {isPedido && (
           <span className="text-xs text-muted-foreground flex items-center gap-1">
             <MessageSquare className="w-3 h-3" /> {post.comentarios || 0}
