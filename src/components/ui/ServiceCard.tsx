@@ -1,19 +1,23 @@
 import React from 'react';
-import { MessageSquare, ArrowRight } from 'lucide-react';
+import { motion } from 'framer-motion';
+import { MessageSquare, MapPin } from 'lucide-react';
 import { formatDate } from '../../utils/date';
 import type { Post as ApiPost } from '../../services/api';
-import { Button } from './Button';
 
-// Extend the Post type to include the 'type' property for local use
+// Extensão do tipo Post (mantido do componente 1)
 interface Post extends ApiPost {
   type?: 'pedidos' | 'profissionais';
+  // Assumindo propriedades baseadas no uso do componente 1:
+  localizacao?: string; 
 }
 
 interface ServiceCardProps {
   post: Post;
   onClick: () => void;
+  index?: number; // Adicionado para a animação do framer-motion funcionar sem erro no TypeScript
 }
 
+// Adaptado para o tamanho reduzido (w-8 h-8) e estilo do componente 2
 const UserAvatar = ({ user }: { user: { nomeUsuario: string; autorImagemUrl?: string } }) => {
   const initials = user.nomeUsuario
     .split(' ')
@@ -22,7 +26,7 @@ const UserAvatar = ({ user }: { user: { nomeUsuario: string; autorImagemUrl?: st
     .join('');
 
   return (
-    <div className="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center font-bold text-gray-600 flex-shrink-0">
+    <div className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center text-xs font-bold text-gray-600 flex-shrink-0 border border-border">
       {user.autorImagemUrl ? (
         <img src={user.autorImagemUrl} alt={user.nomeUsuario} className="w-full h-full rounded-full object-cover" />
       ) : (
@@ -32,81 +36,86 @@ const UserAvatar = ({ user }: { user: { nomeUsuario: string; autorImagemUrl?: st
   );
 };
 
-export const ServiceCard: React.FC<ServiceCardProps> = ({ post, onClick }) => {
+export const ServiceCard: React.FC<ServiceCardProps> = ({ post, onClick, index = 0 }) => {
   const isPedido = post.type === 'pedidos';
 
+  // Lógica original de badges (mantida), mas usando as classes CSS de tema do componente 2
   const renderBadge = () => {
     if (!post.impulsionar) return null;
 
     if (post.role === 'Cliente') {
-        return <div className="bg-red-100 text-red-800 text-xs font-bold px-2 py-1 rounded-full">URGENTE</div>;
+      return (
+        <span className="inline-block text-xs font-bold px-2 py-0.5 rounded-full mb-2 bg-destructive text-destructive-foreground">
+          URGENTE
+        </span>
+      );
     }
 
     if (post.role === 'Prestador') {
-        return <div className="bg-yellow-100 text-yellow-800 text-xs font-bold px-2 py-1 rounded-full">PATROCINADO</div>;
+      return (
+        <span className="inline-block text-xs font-bold px-2 py-0.5 rounded-full mb-2 bg-amber-400 text-card">
+          PATROCINADO
+        </span>
+      );
     }
 
     return null;
   };
 
   return (
-    <div
-      className="bg-white rounded-xl shadow-sm hover:shadow-lg transition-shadow duration-300 flex flex-col border border-gray-100 overflow-hidden"
-      onClick={onClick}
+    <motion.div
+      initial={{ opacity: 0, scale: 0.95 }}
+      animate={{ opacity: 1, scale: 1 }}
+      transition={{ duration: 0.3, delay: index * 0.05, ease: [0.2, 0.8, 0.2, 1] }}
+      onClick={onClick} // O processo original de clique através de props é mantido aqui
+      className="bg-card rounded-xl shadow-sm hover:shadow-card transition-shadow duration-150 cursor-pointer overflow-hidden flex flex-col"
     >
-        {post.imagemUrl && (
-            <img src={post.imagemUrl} alt={post.titulo} className="w-full h-40 object-cover" />
-        )}
-      <div className="p-5 flex flex-col flex-grow">
-        {/* Header */}
-        <div className="flex items-start justify-between mb-4">
-          <div className="flex items-center gap-3">
-            <UserAvatar user={post} />
-            <div>
-              <p className="font-bold text-gray-800 leading-tight">{post.nomeUsuario}</p>
-              <p className="text-xs text-gray-500">{formatDate(post.dataCriacao)}</p>
-            </div>
-          </div>
-          {renderBadge()}
+      {/* Imagem principal seguindo o layout UI 2 */}
+      {post.imagemUrl && (
+        <div className="aspect-video overflow-hidden">
+          <img
+            src={post.imagemUrl}
+            alt={post.titulo}
+            className="w-full h-full object-cover border-b border-border"
+          />
         </div>
+      )}
 
-        {/* Body */}
-        <div className="flex-grow mb-4">
-          <h3 className="text-lg font-semibold text-gray-900 mb-2 truncate">{post.titulo}</h3>
-          <p className="text-sm text-gray-600 line-clamp-2 mb-3">{post.conteudo}</p>
-          {post.categoria && (
+      {/* Corpo do Card */}
+      <div className="p-4 flex flex-col flex-grow">
+        <div className="flex items-center gap-2 mb-2">
+          <UserAvatar user={post} />
+          <span className="text-sm font-medium text-foreground">{post.nomeUsuario}</span>
+          <span className="text-xs text-muted-foreground ml-auto">{formatDate(post.dataCriacao)}</span>
+        </div>
+        
+        {renderBadge()}
+        
+        <h3 className="font-display font-bold text-foreground mb-1 line-clamp-1">{post.titulo}</h3>
+        <p className="text-sm text-muted-foreground line-clamp-3 mb-3">{post.conteudo}</p>
+        
+        {/* Categoria original adaptada ao final do texto, caso exista */}
+        {post.categoria && (
+          <div className="mt-auto">
             <span className="bg-teal-100 text-teal-800 text-xs font-medium px-2.5 py-1 rounded-md">
               {post.categoria}
             </span>
-          )}
-        </div>
-
-        {/* Footer */}
-        <div className="flex justify-between items-center pt-4 border-t border-gray-100">
-          {isPedido ? (
-            <div className="flex flex-col">
-              <span className="text-xs text-gray-500">Lances</span>
-              <div className="flex items-center gap-1.5 text-brand-orange font-bold">
-                <MessageSquare size={16} />
-                <span>{post.comentarios || 0}</span>
-              </div>
-            </div>
-          ) : (
-            <div /> // Placeholder to keep alignment
-          )}
-
-          {isPedido ? (
-            <Button variant="ghost" className="h-auto py-1 px-3">
-              Ver Pedido
-              <ArrowRight size={14} />
-            </Button>
-          ) : (
-            <Button variant="brand" className="w-full sm:w-auto">
-              Entrar em Contato
-            </Button>
-          )}
-        </div>
+          </div>
+        )}
       </div>
-    </div>
+
+      {/* Footer - Mesclando os ícones da UI 2 com a lógica da UI 1 */}
+      <div className="px-4 py-3 border-t border-border flex items-center justify-between">
+        <span className="text-xs text-muted-foreground flex items-center gap-1">
+          <MapPin className="w-3 h-3" /> {post.localizacao || 'Remoto'}
+        </span>
+        
+        {isPedido && (
+          <span className="text-xs text-muted-foreground flex items-center gap-1">
+            <MessageSquare className="w-3 h-3" /> {post.comentarios || 0}
+          </span>
+        )}
+      </div>
+    </motion.div>
   );
 };
