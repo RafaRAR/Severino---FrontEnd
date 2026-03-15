@@ -302,6 +302,13 @@ export async function updateCadastro(
   }
 }
 
+
+// Adicione esta interface nova
+export interface Tag {
+  id: number;
+  nome: string;
+}
+
 // --- Post (Anúncio) Endpoints ---
 
 export interface PostPayload {
@@ -326,6 +333,19 @@ export interface Post extends PostPayload {
   // Optional fields to match ServiceCard
   categoria?: string;
   comentarios?: number;
+
+  // NOVA PARTE ADICIONADA AQUI 👇
+  tags?: Tag[]; 
+  
+  cadastro?: {
+    nome: string;
+    cpf: string;
+    dataNascimento: string;
+    endereco: string;
+    cep: string;
+    contato: string;
+    imagemUrl: string | null;
+  }
 }
 
 export async function createPost(
@@ -387,6 +407,23 @@ export async function getPostById(id: string | number): Promise<Post> {
   } catch (error) {
     throw new Error(toErrorMessage(error));
   }
+}
+
+// --- NOVAS FUNÇÕES DE COMENTÁRIOS ---
+
+export interface ComentarioRequest {
+  conteudo: string;
+  postId: string;
+}
+
+export async function criarComentario(dados: ComentarioRequest) {
+  const { data } = await api.post('/comentarios', dados);
+  return data;
+}
+
+export async function buscarComentarios(postId: string) {
+  const { data } = await api.get(`/comentarios/post/${postId}`);
+  return data;
 }
 
 export { TOKEN_STORAGE_KEY }
