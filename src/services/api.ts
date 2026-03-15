@@ -445,9 +445,8 @@ export async function deletarComentario(comentarioId: number | string): Promise<
 
 // Editar Comentário
 export async function editarComentario(comentarioId: number | string, conteudo: string): Promise<Comentario> {
-  // Nota: Estou assumindo que o PUT espera um objeto com o "conteudo". 
-  // Se o backend esperar algo diferente, é só ajustar aqui!
-  const { data } = await api.put(`/Post/Comentario/editarcomentario/${comentarioId}`, { conteudo });
+  // Colocamos o ID tanto no path quanto na query string para o backend aceitar
+  const { data } = await api.put(`/Post/Comentario/editarcomentario/${comentarioId}?id=${comentarioId}`, { conteudo });
   return data;
 }
 

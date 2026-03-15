@@ -112,13 +112,17 @@ export const ServiceDetailModal: React.FC<ServiceDetailModalProps> = ({ post, on
     if (!textoEdicao.trim()) return;
     try {
       await editarComentario(comentarioId, textoEdicao);
-      // Atualiza na tela sem precisar bater no banco de novo
+      
+      // Atualiza na tela
       setComentarios((prev) =>
         prev.map((c) => (c.id === comentarioId ? { ...c, conteudo: textoEdicao } : c))
       );
       cancelarEdicao();
+      
     } catch (error) {
       console.error("Erro ao editar", error);
+      // 👇 Adicionamos um alert para avisar se o backend recusar a requisição
+      alert("Erro ao salvar o comentário. O backend retornou um erro."); 
     }
   };
 
@@ -218,17 +222,29 @@ export const ServiceDetailModal: React.FC<ServiceDetailModalProps> = ({ post, on
 
                       {/* Modo Edição vs Modo Leitura */}
                       {isEditando ? (
-                        <div className="mt-2 flex gap-2">
+                        <div className="mt-2 flex flex-col gap-2">
                           <input 
                             type="text" 
                             value={textoEdicao} 
                             onChange={(e) => setTextoEdicao(e.target.value)}
                             onKeyDown={(e) => e.key === 'Enter' && salvarEdicao(c.id)}
-                            className="flex-1 text-sm p-1 border rounded"
+                            className="w-full text-sm p-2 border border-gray-300 rounded-md focus:outline-none focus:border-blue-500"
                             autoFocus
                           />
-                          <button onClick={() => salvarEdicao(c.id)} className="text-green-600 hover:text-green-800"><Check size={16}/></button>
-                          <button onClick={cancelarEdicao} className="text-red-600 hover:text-red-800"><X size={16}/></button>
+                          <div className="flex justify-end gap-3">
+                            <button 
+                              onClick={cancelarEdicao} 
+                              className="text-red-500 hover:text-red-700 flex items-center gap-1 text-xs font-medium bg-red-50 px-2 py-1 rounded transition-colors"
+                            >
+                              <X size={14}/> Cancelar
+                            </button>
+                            <button 
+                              onClick={() => salvarEdicao(c.id)} 
+                              className="text-green-600 hover:text-green-800 flex items-center gap-1 text-xs font-medium bg-green-50 px-2 py-1 rounded transition-colors"
+                            >
+                              <Check size={14}/> Salvar
+                            </button>
+                          </div>
                         </div>
                       ) : (
                         <p className='text-sm text-gray-800 break-words mt-1'>{c.conteudo}</p>
