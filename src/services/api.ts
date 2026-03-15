@@ -409,20 +409,45 @@ export async function getPostById(id: string | number): Promise<Post> {
   }
 }
 
-// --- NOVAS FUNÇÕES DE COMENTÁRIOS ---
+// --- COMENTÁRIOS ---
 
-export interface ComentarioRequest {
+export interface Comentario {
+  id: number;
   conteudo: string;
-  postId: string;
+  // O backend manda os dados do autor agrupados aqui dentro agora 👇
+  usuario: {
+    id: number;
+    nome: string;
+  };
 }
 
-export async function criarComentario(dados: ComentarioRequest) {
-  const { data } = await api.post('/comentarios', dados);
+export interface ComentarioPayload {
+  postId: number;
+  conteudo: string;
+}
+
+// Criar Comentário
+export async function criarComentario(usuarioId: number | string, dados: ComentarioPayload): Promise<Comentario> {
+  const { data } = await api.post(`/Post/Comentario/comentar/${usuarioId}`, dados);
   return data;
 }
 
-export async function buscarComentarios(postId: string) {
-  const { data } = await api.get(`/comentarios/post/${postId}`);
+// Buscar Comentários do Post
+export async function getComentariosPorPost(postId: number | string): Promise<Comentario[]> {
+  const { data } = await api.get(`/Post/Comentario/getcomentarioporpost/${postId}`);
+  return data;
+}
+
+// Deletar Comentário
+export async function deletarComentario(comentarioId: number | string): Promise<void> {
+  await api.delete(`/Post/Comentario/comentario/${comentarioId}`);
+}
+
+// Editar Comentário
+export async function editarComentario(comentarioId: number | string, conteudo: string): Promise<Comentario> {
+  // Nota: Estou assumindo que o PUT espera um objeto com o "conteudo". 
+  // Se o backend esperar algo diferente, é só ajustar aqui!
+  const { data } = await api.put(`/Post/Comentario/editarcomentario/${comentarioId}`, { conteudo });
   return data;
 }
 

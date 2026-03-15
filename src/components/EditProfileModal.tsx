@@ -22,7 +22,6 @@ const profileSchema = z.object({
   bairro: z.string().min(1, 'Bairro é obrigatório'),
   cidade: z.string().min(1, 'Cidade é obrigatória'),
   estado: z.string().min(1, 'Estado é obrigatório'),
-  role: z.string(),
 });
 
 type ProfileForm = z.infer<typeof profileSchema>;
@@ -147,7 +146,6 @@ const EditProfileModal = ({ isOpen, onClose, userId }: EditProfileModalProps) =>
   const { rua, numero, bairro, cidade, estado, dataNascimento, ...rest } = data;
 
   // 1. Converte "04/03/2026" (do formulário) para "2026-03-04" (para o backend)
-  // Usamos o split para garantir a ordem correta
   const dateParts = dataNascimento.split('/');
   const isoDate = dateParts.length === 3 
     ? `${dateParts[2]}-${dateParts[1]}-${dateParts[0]}` 
@@ -156,27 +154,37 @@ const EditProfileModal = ({ isOpen, onClose, userId }: EditProfileModalProps) =>
   // 2. Monta o endereço concatenado como o seu backend exige
   const endereco = `${rua}, ${numero} - ${bairro}, ${cidade} - ${estado.toUpperCase()}`;
 
-  // 3. Removemos as máscaras de CPF, CEP e Telefone para enviar apenas números (opcional, mas recomendado)
-  const cleanData = {
-    ...rest,
-    cpf: rest.cpf.replace(/\D/g, ''),
-    contato: rest.contato.replace(/\D/g, ''),
-    cep: rest.cep.replace(/\D/g, ''),
-    dataNascimento: isoDate, // Data em formato ISO
-    endereco,
-  };
+  // 3. O SEGREDO ESTÁ AQUI: Criar o FormData ao invés de um objeto simples!
+  const formData = new FormData();
+  formData.append('Nome', rest.nome);
+  formData.append('Cpf', rest.cpf.replace(/\D/g, ''));
+  formData.append('DataNascimento', isoDate);
+  formData.append('Contato', rest.contato.replace(/\D/g, ''));
+  formData.append('Cep', rest.cep.replace(/\D/g, ''));
+  formData.append('Endereco', endereco);
+  
+  // Obs: Como o modal ainda não tem upload de imagem de perfil, 
+  // nós não enviamos o campo 'Imagem', e o backend deve ignorar.
 
   try {
-    await api.put(`/cadastro/updatecadastro/${userId}`, cleanData);
+    // 4. Enviamos o formData na requisição
+    await api.put(`/cadastro/updatecadastro/${userId}`, formData);
 
     toast.success('Perfil atualizado com sucesso!');
     
     if (profile) {
-      // No estado global, você pode manter a versão formatada ou a limpa, 
-      // dependendo de como o resto do app consome esses dados.
-      updateProfile({ ...profile, ...cleanData });
+      // Atualiza o estado global para a interface refletir na hora
+      updateProfile({ 
+        ...profile, 
+        nome: rest.nome,
+        cpf: rest.cpf.replace(/\D/g, ''),
+        contato: rest.contato.replace(/\D/g, ''),
+        cep: rest.cep.replace(/\D/g, ''),
+        dataNascimento: isoDate,
+        endereco 
+      });
     }
-    
+      
     onClose();
   } catch (error) {
     toast.error('Erro ao atualizar o perfil. Tente novamente.');

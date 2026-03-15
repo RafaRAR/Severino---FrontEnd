@@ -1,22 +1,22 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { BaseModal } from './ui/BaseModal';
 import { formatDate } from '../utils/date';
-import { MessageSquare, Paperclip, Send } from 'lucide-react';
+import { MessageSquare, Paperclip, Send, Trash2, Edit2, X, Check } from 'lucide-react';
 import { Button } from './ui/Button';
-import type { Post } from '../services/api';
 import { useAuth } from '../hooks/useAuth';
+import { 
+  type Post,
+  type Comentario,
+  getComentariosPorPost,
+  criarComentario,
+  deletarComentario,
+  editarComentario
+} from '../services/api';
 
 interface ServiceDetailModalProps {
   post: Post | null;
   onClose: () => void;
-}
-
-// Tipo essencial para a gente controlar os comentários localmente por enquanto
-interface ComentarioLocal {
-  id: string;
-  nomeUsuario: string;
-  conteudo: string;
 }
 
 const UserAvatar = ({ user, size = 'md' }: { user: { nomeUsuario: string; autorImagemUrl?: string }, size?: 'md' | 'lg' }) => {
@@ -42,30 +42,90 @@ const UserAvatar = ({ user, size = 'md' }: { user: { nomeUsuario: string; autorI
 export const ServiceDetailModal: React.FC<ServiceDetailModalProps> = ({ post, onClose }) => {
   const { user } = useAuth();
   
-  // 1. Estados essenciais para fazer a lista funcionar
-  const [comentarios, setComentarios] = useState<ComentarioLocal[]>([
-    { id: '1', nomeUsuario: 'José', conteudo: 'Gostei, muito bom!' } // Mantive o José para a tela não começar vazia!
-  ]);
+  // Estados para os comentários
+  const [comentarios, setComentarios] = useState<Comentario[]>([]);
   const [novoComentario, setNovoComentario] = useState('');
+  const [carregandoComentarios, setCarregandoComentarios] = useState(false);
 
-  // 2. Função essencial para adicionar o comentário digitado na lista
-  const handleEnviarComentario = () => {
-    if (!novoComentario.trim()) return;
+  // Estados para a edição de comentários
+  const [editandoId, setEditandoId] = useState<number | null>(null);
+  const [textoEdicao, setTextoEdicao] = useState('');
 
-    const comentarioCriado: ComentarioLocal = {
-      id: Date.now().toString(), // Gera um ID temporário
-      nomeUsuario: 'Você', // Como ainda não conectamos a API, fica genérico
-      conteudo: novoComentario
+  // Busca os comentários reais no backend assim que o modal abre
+  useEffect(() => {
+    if (!post?.id) return;
+    const carregar = async () => {
+      try {
+        const data = await getComentariosPorPost(post.id);
+        setComentarios(data);
+      } catch (error) {
+        console.error("Erro ao carregar comentários:", error);
+        // 👇 A MÁGICA ACONTECE AQUI 👇
+        // Se der erro 404 (post sem comentários), garantimos que a tela fique limpa!
+        setComentarios([]); 
+      }
     };
+    carregar();
+  }, [post?.id]);
 
-    setComentarios([...comentarios, comentarioCriado]);
-    setNovoComentario(''); // Limpa a barra de digitação
+  // Função para criar comentário
+  const handleEnviarComentario = async () => {
+    if (!novoComentario.trim() || !user?.id || !post?.id) return;
+    setCarregandoComentarios(true);
+    
+    try {
+      await criarComentario(user.id, { postId: Number(post.id), conteudo: novoComentario });
+      setNovoComentario(''); 
+      // Recarrega a lista para buscar o id real gerado pelo banco
+      const data = await getComentariosPorPost(post.id);
+      setComentarios(data);
+    } catch (error) {
+      console.error("Erro ao enviar comentário:", error);
+    } finally {
+      setCarregandoComentarios(false);
+    }
+  };
+
+  // Função para deletar comentário
+  const handleDeletarComentario = async (comentarioId: number) => {
+    if (!window.confirm("Tem certeza que deseja excluir este comentário?")) return;
+    try {
+      await deletarComentario(comentarioId);
+      setComentarios((prev) => prev.filter((c) => c.id !== comentarioId));
+    } catch (error) {
+      console.error("Erro ao deletar", error);
+    }
+  };
+
+  // Funções para editar comentário
+  const iniciarEdicao = (comentario: Comentario) => {
+    setEditandoId(comentario.id);
+    setTextoEdicao(comentario.conteudo);
+  };
+
+  const cancelarEdicao = () => {
+    setEditandoId(null);
+    setTextoEdicao('');
+  };
+
+  const salvarEdicao = async (comentarioId: number) => {
+    if (!textoEdicao.trim()) return;
+    try {
+      await editarComentario(comentarioId, textoEdicao);
+      // Atualiza na tela sem precisar bater no banco de novo
+      setComentarios((prev) =>
+        prev.map((c) => (c.id === comentarioId ? { ...c, conteudo: textoEdicao } : c))
+      );
+      cancelarEdicao();
+    } catch (error) {
+      console.error("Erro ao editar", error);
+    }
   };
 
   if (!post) return null;
 
   return (
-<BaseModal isOpen={!!post} onClose={onClose} title={post.titulo}>
+    <BaseModal isOpen={!!post} onClose={onClose} title={post.titulo}>
       <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
         {/* Left Column */}
         <div className="md:col-span-2 pr-4">
@@ -88,7 +148,7 @@ export const ServiceDetailModal: React.FC<ServiceDetailModalProps> = ({ post, on
           
           <p className="text-gray-700 whitespace-pre-wrap break-words">{post.conteudo}</p>
 
-          {/* AS TAGS ENTRAM AQUI 👇 LOGO ABAIXO DO CONTEÚDO */}
+          {/* AS TAGS */}
           {post.tags && post.tags.length > 0 && (
             <div className="flex flex-wrap gap-2 mt-4">
               {post.tags.map((tag) => (
@@ -101,8 +161,6 @@ export const ServiceDetailModal: React.FC<ServiceDetailModalProps> = ({ post, on
               ))}
             </div>
           )}
-          {/* FIM DA SEÇÃO DE TAGS */}
-
         </div>
 
         {/* Right Column */}
@@ -124,7 +182,6 @@ export const ServiceDetailModal: React.FC<ServiceDetailModalProps> = ({ post, on
             )}
             <div className="flex items-center gap-1 text-gray-600">
               <MessageSquare size={16} />
-              {/* O número de comentários agora acompanha o tamanho da lista real */}
               <span className="text-sm">{comentarios.length} comentários</span>
             </div>
           </div>
@@ -133,14 +190,53 @@ export const ServiceDetailModal: React.FC<ServiceDetailModalProps> = ({ post, on
           <div className="mt-4 pt-4 border-t">
             <h4 className="font-semibold text-gray-800 mb-2">Comentários</h4>
             
-            {/* 3. A lista agora é gerada dinamicamente pelo map */}
             <div className="flex flex-col gap-2 mb-4 max-h-48 overflow-y-auto pr-2">
-              {comentarios.map((c) => (
-                <div key={c.id} className='bg-gray-100 p-2 rounded-lg'>
-                  <p className='text-xs font-bold'>{c.nomeUsuario}</p>
-                  <p className='text-sm break-words'>{c.conteudo}</p>
-                </div>
-              ))}
+              {comentarios.length === 0 ? (
+                <p className="text-sm text-gray-500 italic">Nenhum comentário ainda.</p>
+              ) : (
+                comentarios.map((c) => {
+                  const isDono = Number(user?.id) === c.usuario.id;
+                  const isEditando = editandoId === c.id;
+
+                  return (
+                    <div key={c.id} className='bg-gray-100 p-2 rounded-lg group relative'>
+                      <div className="flex justify-between items-start">
+                        <p className='text-xs font-bold text-gray-700'>{c.usuario.nome}</p>
+                        
+                        {/* Botões só aparecem se o usuário logado for o dono do comentário */}
+                        {isDono && !isEditando && (
+                          <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <button onClick={() => iniciarEdicao(c)} className="text-blue-500 hover:text-blue-700">
+                              <Edit2 size={14} />
+                            </button>
+                            <button onClick={() => handleDeletarComentario(c.id)} className="text-red-500 hover:text-red-700">
+                              <Trash2 size={14} />
+                            </button>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Modo Edição vs Modo Leitura */}
+                      {isEditando ? (
+                        <div className="mt-2 flex gap-2">
+                          <input 
+                            type="text" 
+                            value={textoEdicao} 
+                            onChange={(e) => setTextoEdicao(e.target.value)}
+                            onKeyDown={(e) => e.key === 'Enter' && salvarEdicao(c.id)}
+                            className="flex-1 text-sm p-1 border rounded"
+                            autoFocus
+                          />
+                          <button onClick={() => salvarEdicao(c.id)} className="text-green-600 hover:text-green-800"><Check size={16}/></button>
+                          <button onClick={cancelarEdicao} className="text-red-600 hover:text-red-800"><X size={16}/></button>
+                        </div>
+                      ) : (
+                        <p className='text-sm text-gray-800 break-words mt-1'>{c.conteudo}</p>
+                      )}
+                    </div>
+                  );
+                })
+              )}
             </div>
 
             {user ? (
@@ -148,18 +244,20 @@ export const ServiceDetailModal: React.FC<ServiceDetailModalProps> = ({ post, on
                 <input
                   type="text"
                   value={novoComentario}
-                  onChange={(e) => setNovoComentario(e.target.value)} // Salva o que está sendo digitado
-                  onKeyDown={(e) => e.key === 'Enter' && handleEnviarComentario()} // Permite enviar com a tecla Enter
+                  onChange={(e) => setNovoComentario(e.target.value)} 
+                  onKeyDown={(e) => e.key === 'Enter' && handleEnviarComentario()}
+                  disabled={carregandoComentarios}
                   placeholder="Adicione um comentário..."
-                  className="w-full border-gray-300 rounded-lg p-2 pr-20 text-sm"
+                  className="w-full border-gray-300 rounded-lg p-2 pr-20 text-sm disabled:opacity-50"
                 />
                 <div className="absolute inset-y-0 right-0 flex items-center pr-2">
-                  <button className="p-1 text-gray-500 hover:text-gray-700">
+                  <button className="p-1 text-gray-500 hover:text-gray-700 disabled:opacity-50">
                     <Paperclip size={18} />
                   </button>
                   <button 
-                    onClick={handleEnviarComentario} // Permite enviar pelo botão
-                    className="p-1 text-blue-500 hover:text-blue-700"
+                    onClick={handleEnviarComentario}
+                    disabled={carregandoComentarios || !novoComentario.trim()}
+                    className="p-1 text-blue-500 hover:text-blue-700 disabled:text-gray-400"
                   >
                     <Send size={18} />
                   </button>
@@ -181,15 +279,12 @@ export const ServiceDetailModal: React.FC<ServiceDetailModalProps> = ({ post, on
 
       {/* Footer */}
       <div className="mt-8 pt-6 border-t flex justify-between items-center">
-        {/* Opcional: mostrar o telefone na interface */}
         <div className="text-sm text-gray-600">
            {post.cadastro?.contato && <span>📞 {post.cadastro.contato}</span>}
         </div>
 
-        {/* Botão de contacto inteligente */}
         {post.cadastro?.contato ? (
           <a 
-            /* Transforma o número num link direto para o WhatsApp (remove parênteses e traços) */
             href={`https://wa.me/55${post.cadastro.contato.replace(/\D/g, '')}`} 
             target="_blank" 
             rel="noopener noreferrer"
