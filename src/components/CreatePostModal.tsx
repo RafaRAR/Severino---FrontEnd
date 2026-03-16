@@ -1,13 +1,15 @@
-import React, { useState, useCallback, useRef } from 'react';
+import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { Input } from './ui/Input';
 import { Button } from './ui/Button';
-import { MapPin, UploadCloud } from 'lucide-react';
+import { MapPin, UploadCloud, X } from 'lucide-react';
 import {
   createPost,
   fetchCep,
+  api, 
+  type Tag, 
 } from '../services/api';
 import { useAuth } from '../hooks/useAuth';
 import { maskCEP, maskPhone } from '../utils/masks';
@@ -48,6 +50,29 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({ isOpen, onClos
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // --- ESTADOS DAS TAGS ---
+  const [tagsDisponiveis, setTagsDisponiveis] = useState<Tag[]>([]);
+  const [tagsSelecionadas, setTagsSelecionadas] = useState<number[]>([]);
+  
+  // --- ESTADOS DO DROPDOWN ---
+  const [buscaTag, setBuscaTag] = useState('');
+  const [dropdownAberto, setDropdownAberto] = useState(false);
+
+  // Lógica de filtragem do dropdown
+  const tagsFiltradas = tagsDisponiveis.filter(tag => 
+    tag.nome.toLowerCase().includes(buscaTag.toLowerCase()) &&
+    !tagsSelecionadas.includes(tag.id)
+  );
+
+  const adicionarTag = (id: number) => {
+    setTagsSelecionadas(prev => [...prev, id]);
+    setBuscaTag(''); 
+    setDropdownAberto(false); 
+  };
+
+  const removerTag = (id: number) => {
+    setTagsSelecionadas(prev => prev.filter(tagId => tagId !== id));
+  };
 
   const {
     register,
@@ -62,6 +87,26 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({ isOpen, onClos
       impulsionar: false,
     }
   });
+
+  // --- EFEITO PARA BUSCAR AS TAGS DO BACKEND ---
+  useEffect(() => {
+    if (isOpen) {
+      const fetchTags = async () => {
+        try {
+          const { data } = await api.get<Tag[]>('/Tag');
+          setTagsDisponiveis(data);
+        } catch (error) {
+          console.error("Erro ao carregar as tags:", error);
+        }
+      };
+      fetchTags();
+    } else {
+      // Limpa os estados quando o modal fechar
+      setTagsSelecionadas([]);
+      setBuscaTag('');
+      setDropdownAberto(false);
+    }
+  }, [isOpen]);
 
   const handleImageChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -132,6 +177,11 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({ isOpen, onClos
     formData.append('role', roleSelecionada);
     formData.append('impulsionar', String(!!data.impulsionar));
 
+    // --- ENVIANDO AS TAGS NO FORMDATA ---
+    tagsSelecionadas.forEach((tagId) => {
+      formData.append('TagIds', tagId.toString());
+    });
+
     if (imageFile) {
       formData.append('Imagem', imageFile);
     }
@@ -139,6 +189,7 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({ isOpen, onClos
     try {
       await createPost(user.id, formData);
       onPostCreated();
+      onClose(); 
     } catch (error) {
       setSubmitError(error instanceof Error ? error.message : "Falha ao criar anúncio.");
     }
@@ -178,11 +229,83 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({ isOpen, onClos
         </div>
 
         <Input label="Título do Anúncio" {...register('titulo')} error={errors.titulo?.message} variant="light" />
+        
         <div>
           <label className="block text-sm font-medium text-brand-navy mb-1">Descrição</label>
           <textarea {...register('conteudo')} className="w-full rounded-xl border border-gray-300 bg-white px-4 py-3 text-sm text-brand-navy placeholder:text-gray-400 outline-none transition focus:border-brand-navy focus:ring-1 focus:ring-brand-navy disabled:bg-gray-100 shadow-md" rows={4}></textarea>
           {errors.conteudo && <span className="text-xs text-red-500">{errors.conteudo.message}</span>}
         </div>
+
+        {/* --- NOVA SEÇÃO DE TAGS (COM BUSCA/DROPDOWN) --- */}
+        <div className="pt-2 pb-2">
+          <label className="block text-sm font-medium text-brand-navy mb-2">
+            Categorias do Serviço
+          </label>
+          
+          <div className="relative">
+            <input
+              type="text"
+              value={buscaTag}
+              onChange={(e) => {
+                setBuscaTag(e.target.value);
+                setDropdownAberto(true);
+              }}
+              onFocus={() => setDropdownAberto(true)}
+              onBlur={() => {
+                setTimeout(() => setDropdownAberto(false), 200);
+              }}
+              placeholder="Digite para buscar categorias..."
+              className="w-full rounded-xl border border-gray-300 bg-white px-4 py-2 text-sm text-brand-navy placeholder:text-gray-400 outline-none transition focus:border-brand-navy focus:ring-1 focus:ring-brand-navy"
+            />
+
+            {dropdownAberto && tagsFiltradas.length > 0 && (
+              <ul className="absolute z-10 mt-1 max-h-40 w-full overflow-auto rounded-xl border border-gray-200 bg-white py-1 shadow-lg">
+                {tagsFiltradas.map((tag) => (
+                  <li
+                    key={tag.id}
+                    onMouseDown={(e) => {
+                      e.preventDefault(); 
+                      adicionarTag(tag.id);
+                    }}
+                    className="cursor-pointer px-4 py-2 text-sm text-gray-700 hover:bg-brand-orange hover:text-white transition-colors"
+                  >
+                    {tag.nome}
+                  </li>
+                ))}
+              </ul>
+            )}
+            {dropdownAberto && buscaTag && tagsFiltradas.length === 0 && (
+              <div className="absolute z-10 mt-1 w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm text-gray-500 shadow-lg">
+                Nenhuma categoria encontrada.
+              </div>
+            )}
+          </div>
+
+          {tagsSelecionadas.length > 0 && (
+            <div className="flex flex-wrap gap-2 mt-3">
+              {tagsSelecionadas.map((tagId) => {
+                const tag = tagsDisponiveis.find(t => t.id === tagId);
+                if (!tag) return null;
+                return (
+                  <span
+                    key={tag.id}
+                    className="flex items-center gap-1 bg-brand-orange text-white px-3 py-1 rounded-full text-sm font-medium"
+                  >
+                    {tag.nome}
+                    <button
+                      type="button"
+                      onClick={() => removerTag(tag.id)}
+                      className="ml-1 rounded-full p-0.5 hover:bg-orange-600 transition-colors"
+                    >
+                      <X size={14} />
+                    </button>
+                  </span>
+                );
+              })}
+            </div>
+          )}
+        </div>
+        {/* --- FIM DA SEÇÃO DE TAGS --- */}
 
         <div className="border-t border-gray-200 pt-4">
           <div className="flex justify-between items-center mb-2">

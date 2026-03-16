@@ -7,8 +7,6 @@ import type { Post as ApiPost } from '../../services/api';
 // Extensão do tipo Post (mantido do componente 1)
 interface Post extends ApiPost {
   type?: 'pedidos' | 'profissionais';
-  // Assumindo propriedades baseadas na utilização do componente 1:
-  localizacao?: string;
 }
 
 interface ServiceCardProps {
@@ -107,7 +105,8 @@ export const ServiceCard: React.FC<ServiceCardProps> = ({ post, onClick, index =
       {/* Footer - Mesclando os ícones da UI 2 com a lógica da UI 1 */}
       <div className="px-4 py-3 border-t border-border flex items-center justify-between">
         <span className="text-xs text-muted-foreground flex items-center gap-1">
-          <MapPin className="w-3 h-3" /> {post.localizacao || 'Remoto'}
+<MapPin className="w-3 h-3" /> 
+{post.endereco ? post.endereco.substring(post.endereco.indexOf('-') + 1).trim() : 'Remoto'}
         </span>
 
         {isPedido && (

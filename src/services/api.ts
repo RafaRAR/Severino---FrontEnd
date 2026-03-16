@@ -302,6 +302,13 @@ export async function updateCadastro(
   }
 }
 
+
+// Adicione esta interface nova
+export interface Tag {
+  id: number;
+  nome: string;
+}
+
 // --- Post (Anúncio) Endpoints ---
 
 export interface PostPayload {
@@ -326,6 +333,19 @@ export interface Post extends PostPayload {
   // Optional fields to match ServiceCard
   categoria?: string;
   comentarios?: number;
+
+  // NOVA PARTE ADICIONADA AQUI 👇
+  tags?: Tag[]; 
+  
+  cadastro?: {
+    nome: string;
+    cpf: string;
+    dataNascimento: string;
+    endereco: string;
+    cep: string;
+    contato: string;
+    imagemUrl: string | null;
+  }
 }
 
 export async function createPost(
@@ -387,6 +407,47 @@ export async function getPostById(id: string | number): Promise<Post> {
   } catch (error) {
     throw new Error(toErrorMessage(error));
   }
+}
+
+// --- COMENTÁRIOS ---
+
+export interface Comentario {
+  id: number;
+  conteudo: string;
+  // O backend manda os dados do autor agrupados aqui dentro agora 👇
+  usuario: {
+    id: number;
+    nome: string;
+  };
+}
+
+export interface ComentarioPayload {
+  postId: number;
+  conteudo: string;
+}
+
+// Criar Comentário
+export async function criarComentario(usuarioId: number | string, dados: ComentarioPayload): Promise<Comentario> {
+  const { data } = await api.post(`/Post/Comentario/comentar/${usuarioId}`, dados);
+  return data;
+}
+
+// Buscar Comentários do Post
+export async function getComentariosPorPost(postId: number | string): Promise<Comentario[]> {
+  const { data } = await api.get(`/Post/Comentario/getcomentarioporpost/${postId}`);
+  return data;
+}
+
+// Deletar Comentário
+export async function deletarComentario(comentarioId: number | string): Promise<void> {
+  await api.delete(`/Post/Comentario/comentario/${comentarioId}`);
+}
+
+// Editar Comentário
+export async function editarComentario(comentarioId: number | string, conteudo: string): Promise<Comentario> {
+  // Colocamos o ID tanto no path quanto na query string para o backend aceitar
+  const { data } = await api.put(`/Post/Comentario/editarcomentario/${comentarioId}?id=${comentarioId}`, { conteudo });
+  return data;
 }
 
 export { TOKEN_STORAGE_KEY }
