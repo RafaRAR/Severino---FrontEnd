@@ -313,12 +313,12 @@ export const ServiceDetailModal: React.FC<ServiceDetailModalProps> = ({ post, on
             rel="noopener noreferrer"
           >
             <Button>
-              Entrar em Contacto
+              Entrar em Contato
             </Button>
           </a>
         ) : (
           <Button disabled title="Este utilizador não disponibilizou um número">
-            Contacto Indisponível
+            Contato Indisponível
           </Button>
         )}
       </div>
