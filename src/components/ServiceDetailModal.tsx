@@ -198,7 +198,7 @@ export default function ServiceDetailModal({ post, isOpen, onClose }: Props) {
           <div className="mt-8 border-t border-border pt-6">
             <h3 className="font-display text-lg font-bold text-foreground mb-4">Propostas Recebidas</h3>
 
-            {user && (
+            {user && profile?.nome != post.cadastro?.nome && (
               <div className="bg-secondary rounded-xl p-4 mb-6">
                 <textarea
                   className="w-full border border-border rounded-xl px-4 py-3 bg-card text-foreground text-sm h-20 resize-none mb-3"
@@ -308,7 +308,7 @@ export default function ServiceDetailModal({ post, isOpen, onClose }: Props) {
                       R$ {c.valorDeLance.toFixed(2).replace(".", ",")}
                     </div>
                     {profile?.nome == post.cadastro.nome && (
-                    <div className="flex gap-2">
+                      <div className="flex gap-2">
                         <Button size="sm" onClick={() => handleAcceptProposal(c.valorDeLance, c.usuario.nome)}>
                           Aceitar Proposta
                         </Button>
