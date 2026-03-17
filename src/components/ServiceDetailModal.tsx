@@ -21,7 +21,7 @@ interface Props {
 }
 
 export default function ServiceDetailModal({ post, isOpen, onClose }: Props) {
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
 
   const [comentarios, setComentarios] = useState<Comentario[]>([]);
   const [novoComentario, setNovoComentario] = useState("");
@@ -307,8 +307,8 @@ export default function ServiceDetailModal({ post, isOpen, onClose }: Props) {
                     <div className="text-2xl font-bold text-success tabular-nums mb-3">
                       R$ {c.valorDeLance.toFixed(2).replace(".", ",")}
                     </div>
-                    {user && (
-                      <div className="flex gap-2">
+                    {profile?.nome == post.cadastro.nome && (
+                    <div className="flex gap-2">
                         <Button size="sm" onClick={() => handleAcceptProposal(c.valorDeLance, c.usuario.nome)}>
                           Aceitar Proposta
                         </Button>
