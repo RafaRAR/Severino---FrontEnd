@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { MapPin, Phone, Send, Trash2, Edit2, X, Check, MessageSquare } from "lucide-react";
+import { MapPin, Phone, Send, Trash2, Edit2, X, Check, MessageSquare, CheckCircle } from "lucide-react";
 
 import {
   type Post,
@@ -25,10 +25,12 @@ export default function ServiceDetailModal({ post, isOpen, onClose }: Props) {
 
   const [comentarios, setComentarios] = useState<Comentario[]>([]);
   const [novoComentario, setNovoComentario] = useState("");
+  const [novoValorDeLance, setNovoValorDeLance] = useState<number | string>('');
   const [carregandoComentarios, setCarregandoComentarios] = useState(false);
 
   const [editandoId, setEditandoId] = useState<number | null>(null);
   const [textoEdicao, setTextoEdicao] = useState("");
+  const [valorEdicao, setValorEdicao] = useState<number | string>('');
 
   useEffect(() => {
     if (!post?.id) return;
@@ -47,17 +49,19 @@ export default function ServiceDetailModal({ post, isOpen, onClose }: Props) {
   }, [post?.id]);
 
   const handleEnviarComentario = async () => {
-    if (!novoComentario.trim() || !user?.id || !post?.id) return;
+    if (!novoComentario.trim() || !user?.id || !post?.id || !novoValorDeLance) return;
 
     setCarregandoComentarios(true);
 
     try {
       await criarComentario(user.id, {
         postId: Number(post.id),
-        conteudo: novoComentario
+        conteudo: novoComentario,
+        valorDeLance: Number(novoValorDeLance),
       });
 
       setNovoComentario("");
+      setNovoValorDeLance('');
 
       const data = await getComentariosPorPost(post.id);
       setComentarios(data);
@@ -70,56 +74,61 @@ export default function ServiceDetailModal({ post, isOpen, onClose }: Props) {
   };
 
   const handleDeletarComentario = async (comentarioId: number) => {
-    if (!window.confirm("Tem certeza que deseja excluir este comentário?")) return;
+    if (!window.confirm("Tem certeza que deseja excluir esta proposta?")) return;
 
     try {
       await deletarComentario(comentarioId);
       setComentarios((prev) => prev.filter((c) => c.id !== comentarioId));
     } catch (error) {
-      console.error("Erro ao deletar comentário", error);
+      console.error("Erro ao deletar proposta", error);
     }
   };
 
   const iniciarEdicao = (comentario: Comentario) => {
     setEditandoId(comentario.id);
     setTextoEdicao(comentario.conteudo);
+    setValorEdicao(comentario.valorDeLance);
   };
 
   const cancelarEdicao = () => {
     setEditandoId(null);
     setTextoEdicao("");
+    setValorEdicao('');
   };
 
   const salvarEdicao = async (comentarioId: number) => {
-    if (!textoEdicao.trim()) return;
+    if (!textoEdicao.trim() || !valorEdicao) return;
 
     try {
-      await editarComentario(comentarioId, textoEdicao);
+      await editarComentario(comentarioId, textoEdicao, Number(valorEdicao));
 
       setComentarios((prev) =>
         prev.map((c) =>
-          c.id === comentarioId ? { ...c, conteudo: textoEdicao } : c
+          c.id === comentarioId ? { ...c, conteudo: textoEdicao, valorDeLance: Number(valorEdicao) } : c
         )
       );
 
       cancelarEdicao();
     } catch (error) {
-      console.error("Erro ao editar comentário", error);
-      alert("Erro ao salvar comentário");
+      console.error("Erro ao editar proposta", error);
+      alert("Erro ao salvar proposta");
     }
   };
 
+  const handleAcceptProposal = (value: number, name: string) => {
+    // setCheckoutData({ serviceTitle: post.title, professionalName: name, value });
+    // setOpenModal("checkout");
+    alert(`Proposta de ${name} no valor de R$ ${value} aceita! (funcionalidade de checkout a ser implementada)`);
+  };
+
   if (!post) return null;
+  const isPedido = post.role === "Cliente";
 
   return (
     <ModalOverlay isOpen={isOpen} onClose={onClose} maxWidth="max-w-4xl">
       <div className="p-6">
-
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-
-          {/* LEFT */}
           <div>
-
             {post.imagemUrl && (
               <img
                 src={post.imagemUrl}
@@ -127,15 +136,8 @@ export default function ServiceDetailModal({ post, isOpen, onClose }: Props) {
                 className="w-full rounded-xl object-cover aspect-video border border-border"
               />
             )}
-
-            <h2 className="font-display text-2xl font-bold text-foreground mt-4">
-              {post.titulo}
-            </h2>
-
-            <p className="text-sm text-muted-foreground mt-2 leading-relaxed whitespace-pre-wrap">
-              {post.conteudo}
-            </p>
-
+            <h2 className="font-display text-2xl font-bold text-foreground mt-4">{post.titulo}</h2>
+            <p className="text-sm text-muted-foreground mt-2 leading-relaxed whitespace-pre-wrap">{post.conteudo}</p>
             {post.tags && post.tags.length > 0 && (
               <div className="flex flex-wrap gap-2 mt-3">
                 {post.tags.map((tag) => (
@@ -148,36 +150,30 @@ export default function ServiceDetailModal({ post, isOpen, onClose }: Props) {
                 ))}
               </div>
             )}
-
-            {/* AUTHOR */}
-            <div className="flex items-center gap-2 mt-4">
+            <div className="flex items-center gap-2 mt-4 flex-nowrap">
               <img
                 src={post.cadastro?.imagemUrl || ''}
                 alt=""
-                className="w-8 h-8 rounded-full border border-border"
+                className="w-8 h-8 rounded-full border border-border shrink-0"
               />
 
-              <span className="text-sm font-medium text-foreground">
+              <span className="text-sm font-medium text-foreground truncate">
                 {post.cadastro?.nome || post.nomeUsuario}
               </span>
 
               {post.cadastro?.endereco && (
-                <span className="text-xs text-muted-foreground flex items-center gap-1 ml-auto">
-                  <MapPin className="w-3 h-3" />
+                <span className="text-xs text-muted-foreground flex items-center gap-1 ml-auto max-w-[40%] truncate">
+                  <MapPin className="w-3 h-3 shrink-0" />
                   {post.cadastro.endereco}
                 </span>
               )}
             </div>
-
             <p className="text-xs text-muted-foreground mt-1">
               {formatDate(post.dataCriacao)}
             </p>
-
           </div>
 
-          {/* RIGHT */}
           <div className="space-y-4">
-
             {post.cadastro?.contato ? (
               <a
                 href={`https://wa.me/55${post.cadastro.contato.replace(/\D/g, "")}`}
@@ -195,131 +191,136 @@ export default function ServiceDetailModal({ post, isOpen, onClose }: Props) {
                 Contato indisponível
               </Button>
             )}
-
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <MessageSquare className="w-4 h-4" />
-              {comentarios.length} comentários
-            </div>
-
           </div>
         </div>
 
-        {/* COMMENTS */}
-        {post.role === "Cliente" && (
+        {isPedido && (
           <div className="mt-8 border-t border-border pt-6">
+            <h3 className="font-display text-lg font-bold text-foreground mb-4">Propostas Recebidas</h3>
 
-            <h3 className="font-display text-lg font-bold text-foreground mb-4">
-              Comentários
-            </h3>
+            {user && (
+              <div className="bg-secondary rounded-xl p-4 mb-6">
+                <textarea
+                  className="w-full border border-border rounded-xl px-4 py-3 bg-card text-foreground text-sm h-20 resize-none mb-3"
+                  placeholder="Descreva como você vai resolver..."
+                  value={novoComentario}
+                  onChange={(e) => setNovoComentario(e.target.value)}
+                />
+                <div className="flex gap-3 items-center">
+                  <div className="relative flex-1 max-w-[160px]">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">R$</span>
+                    <input
+                      type="number"
+                      className="w-full border border-border rounded-xl pl-9 pr-4 py-3 bg-card text-foreground text-sm tabular-nums"
+                      placeholder="0,00"
+                      value={novoValorDeLance}
+                      onChange={(e) => setNovoValorDeLance(e.target.value)}
+                    />
+                  </div>
+                  <Button size="lg" onClick={handleEnviarComentario} disabled={carregandoComentarios}>
+                    <Send className="w-4 h-4" />
+                    Enviar Proposta
+                  </Button>
+                </div>
+              </div>
+            )}
 
-            <div className="space-y-3 mb-4 max-h-64 overflow-y-auto">
-
-              {comentarios.length === 0 && (
-                <p className="text-sm text-muted-foreground italic">
-                  Nenhum comentário ainda.
-                </p>
-              )}
-
+            <div className="space-y-4">
               {comentarios.map((c) => {
-
                 const isDono = Number(user?.id) === c.usuario.id;
                 const isEditando = editandoId === c.id;
 
+                if (isEditando) {
+                  return (
+                    <div key={c.id} className="bg-card border border-border rounded-xl shadow-sm p-4">
+                      <textarea
+                        className="w-full border border-border rounded-xl px-4 py-3 bg-card text-foreground text-sm h-20 resize-none mb-3"
+                        value={textoEdicao}
+                        onChange={(e) => setTextoEdicao(e.target.value)}
+                      />
+                      <div className="flex gap-3 items-center">
+                        <div className="relative flex-1 max-w-[160px]">
+                          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">R$</span>
+                          <input
+                            type="number"
+                            className="w-full border border-border rounded-xl pl-9 pr-4 py-3 bg-card text-foreground text-sm tabular-nums"
+                            value={valorEdicao}
+                            onChange={(e) => setValorEdicao(e.target.value)}
+                          />
+                        </div>
+                        <div className="flex justify-end gap-2">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={cancelarEdicao}
+                          >
+                            <X size={14} /> Cancelar
+                          </Button>
+                          <Button
+                            size="sm"
+                            onClick={() => salvarEdicao(c.id)}
+                          >
+                            <Check size={14} /> Salvar
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  )
+                }
+
                 return (
-                  <div
-                    key={c.id}
-                    className="bg-card border border-border rounded-xl p-3"
-                  >
-
-                    <div className="flex justify-between items-start">
-
-                      <span className="text-xs font-bold text-foreground">
-                        {c.usuario.nome}
-                      </span>
-
-                      {isDono && !isEditando && (
-                        <div className="flex gap-2">
-
+                  <div key={c.id} className="bg-card border border-border rounded-xl shadow-sm p-4">
+                    <div className="flex items-center gap-3 mb-3">
+                      {user?.name.split(' ').map((n) => n[0]).slice(0, 2).join('')}
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm font-bold text-foreground">{c.usuario.nome}</span>
+                          {/* {c.usuario.isVerified && (
+                            <span className="flex items-center gap-1 bg-indigo-50 text-indigo-600 text-xs px-2 py-0.5 rounded-full">
+                              <CheckCircle className="w-3 h-3" /> Verificado
+                            </span>
+                          )} */}
+                        </div>
+                        <span className="text-xs text-muted-foreground">
+                          {/* ⭐ {c.usuario.rating} ·  */}
+                          {/* {formatDate(c.dataCriacao)} */}
+                        </span>
+                      </div>
+                      {isDono && (
+                        <div className="flex gap-2 ml-auto">
                           <button
                             onClick={() => iniciarEdicao(c)}
                             className="text-muted-foreground hover:text-foreground"
                           >
                             <Edit2 size={14} />
                           </button>
-
                           <button
                             onClick={() => handleDeletarComentario(c.id)}
                             className="text-red-500 hover:text-red-600"
                           >
                             <Trash2 size={14} />
                           </button>
-
                         </div>
                       )}
                     </div>
-
-                    {isEditando ? (
-                      <div className="mt-2 flex flex-col gap-2">
-
-                        <input
-                          value={textoEdicao}
-                          onChange={(e) => setTextoEdicao(e.target.value)}
-                          className="w-full border border-border rounded-lg p-2 text-sm"
-                          autoFocus
-                        />
-
-                        <div className="flex justify-end gap-2">
-
-                          <button
-                            onClick={cancelarEdicao}
-                            className="text-red-500 text-xs flex items-center gap-1"
-                          >
-                            <X size={14} /> Cancelar
-                          </button>
-
-                          <button
-                            onClick={() => salvarEdicao(c.id)}
-                            className="text-green-600 text-xs flex items-center gap-1"
-                          >
-                            <Check size={14} /> Salvar
-                          </button>
-
-                        </div>
-
+                    <p className="text-sm text-muted-foreground mb-3">{c.conteudo}</p>
+                    <div className="text-2xl font-bold text-success tabular-nums mb-3">
+                      R$ {c.valorDeLance.toFixed(2).replace(".", ",")}
+                    </div>
+                    {user && (
+                      <div className="flex gap-2">
+                        <Button size="sm" onClick={() => handleAcceptProposal(c.valorDeLance, c.usuario.nome)}>
+                          Aceitar Proposta
+                        </Button>
+                        <Button variant="outline" size="sm">
+                          <MessageSquare className="w-4 h-4" /> Chamar no Chat
+                        </Button>
                       </div>
-                    ) : (
-                      <p className="text-sm text-muted-foreground mt-1">
-                        {c.conteudo}
-                      </p>
                     )}
-
                   </div>
-                );
+                )
               })}
             </div>
-
-            {user && (
-              <div className="flex gap-2">
-
-                <input
-                  type="text"
-                  value={novoComentario}
-                  onChange={(e) => setNovoComentario(e.target.value)}
-                  onKeyDown={(e) => e.key === "Enter" && handleEnviarComentario()}
-                  placeholder="Adicione um comentário..."
-                  className="flex-1 border border-border rounded-xl px-4 py-2 text-sm"
-                />
-
-                <Button
-                  onClick={handleEnviarComentario}
-                  disabled={!novoComentario.trim() || carregandoComentarios}
-                >
-                  <Send className="w-4 h-4" />
-                </Button>
-
-              </div>
-            )}
-
           </div>
         )}
       </div>

@@ -413,16 +413,17 @@ export async function getPostById(id: string | number): Promise<Post> {
 export interface Comentario {
   id: number;
   conteudo: string;
-  // O backend manda os dados do autor agrupados aqui dentro agora 👇
   usuario: {
     id: number;
     nome: string;
   };
+  valorDeLance: number;
 }
 
 export interface ComentarioPayload {
   postId: number;
   conteudo: string;
+  valorDeLance: number;
 }
 
 // Criar Comentário
@@ -443,9 +444,9 @@ export async function deletarComentario(comentarioId: number | string): Promise<
 }
 
 // Editar Comentário
-export async function editarComentario(comentarioId: number | string, conteudo: string): Promise<Comentario> {
+export async function editarComentario(comentarioId: number | string, conteudo: string, valorDeLance: number): Promise<Comentario> {
   // Colocamos o ID tanto no path quanto na query string para o backend aceitar
-  const { data } = await api.put(`/Post/Comentario/editarcomentario/${comentarioId}?id=${comentarioId}`, { conteudo });
+  const { data } = await api.put(`/Post/Comentario/editarcomentario/${comentarioId}?id=${comentarioId}`, { conteudo, valorDeLance });
   return data;
 }
 
