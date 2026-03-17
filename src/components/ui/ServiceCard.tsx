@@ -16,7 +16,7 @@ interface ServiceCardProps {
 }
 
 // Adaptado para o tamanho reduzido (w-8 h-8) e estilo do componente 2
-const UserAvatar = ({ user }: { user: { nomeUsuario: string; autorImagemUrl?: string } }) => {
+const UserAvatar = ({ user }: { user: { nomeUsuario: string; autorImagemUrl: string } }) => {
   const initials = user.nomeUsuario
     .split(' ')
     .map((n) => n[0])
@@ -80,9 +80,9 @@ export const ServiceCard: React.FC<ServiceCardProps> = ({ post, onClick, index =
       )}
 
       {/* Corpo do Card */}
-      <div className="p-4 flex flex-col flex-grow">
+      <div className="p-4 flex flex-col flex-grow items-start">
         <div className="flex items-center gap-2 mb-2">
-          <UserAvatar user={post} />
+          <UserAvatar user={{ nomeUsuario: post.cadastro.nome!, autorImagemUrl: post.cadastro.imagemUrl! }} />
           <span className="text-sm font-medium text-foreground">{post.nomeUsuario}</span>
           <span className="text-xs text-muted-foreground ml-auto">{formatDate(post.dataCriacao)}</span>
         </div>
@@ -105,8 +105,8 @@ export const ServiceCard: React.FC<ServiceCardProps> = ({ post, onClick, index =
       {/* Footer - Mesclando os ícones da UI 2 com a lógica da UI 1 */}
       <div className="px-4 py-3 border-t border-border flex items-center justify-between">
         <span className="text-xs text-muted-foreground flex items-center gap-1">
-<MapPin className="w-3 h-3" /> 
-{post.endereco ? post.endereco.substring(post.endereco.indexOf('-') + 1).trim() : 'Remoto'}
+          <MapPin className="w-3 h-3" />
+          {post.endereco ? post.endereco.substring(post.endereco.indexOf('-') + 1).trim() : 'Remoto'}
         </span>
 
         {isPedido && (

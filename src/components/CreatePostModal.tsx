@@ -361,7 +361,7 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({ isOpen, onClos
         {submitError && <p className="text-sm text-red-500">{submitError}</p>}
         <div className="flex justify-end gap-4 pt-4">
           <Button type="button" variant="outline" onClick={onClose}>Cancelar</Button>
-          <Button type="submit" variant="brand" loading={isSubmitting} className="font-bold text-white hover:bg-orange-600">Criar Anúncio</Button>
+          <Button type="submit" variant="default" className="font-bold text-white hover:bg-orange-600">Criar Anúncio</Button>
         </div>
       </form>
     </BaseModal>

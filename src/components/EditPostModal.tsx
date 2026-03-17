@@ -175,7 +175,7 @@ export const EditPostModal: React.FC<EditPostModalProps> = ({ isOpen, onClose, o
         {submitError && <p className="text-sm text-red-500">{submitError}</p>}
         <div className="flex justify-end gap-4 pt-4">
           <Button type="button" variant="outline" onClick={onClose}>Cancelar</Button>
-          <Button type="submit" variant="brand" loading={isSubmitting} className="font-bold text-white hover:bg-orange-600">Salvar Alterações</Button>
+          <Button type="submit" variant="secondary" className="font-bold text-white hover:bg-orange-600">Salvar Alterações</Button>
         </div>
       </form>
     </BaseModal>

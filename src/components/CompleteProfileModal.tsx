@@ -312,8 +312,7 @@ export function CompleteProfileModal({ isOpen, onClose }: CompleteProfileModalPr
         <div className="pt-4">
           <Button
             type="submit"
-            variant="brand"
-            loading={isSubmitting}
+            variant="secondary"
             disabled={isSubmitting}
             className="w-full font-bold text-white hover:bg-orange-600"
           >

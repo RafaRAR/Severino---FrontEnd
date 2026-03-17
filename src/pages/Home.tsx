@@ -1,11 +1,11 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ServiceCard } from '../components/ui/ServiceCard';
-import { ServiceDetailModal } from '../components/ServiceDetailModal';
 import { CreatePostModal } from '../components/CreatePostModal';
 import { getAllPosts, api, type Post, type Tag } from '../services/api';
 import { useAuth } from '../hooks/useAuth';
 import { Loader2, Camera, Wrench, X, Search } from 'lucide-react';
+import ServiceDetailModal from '../components/ServiceDetailModal';
 
 type PostType = 'Cliente' | 'Prestador';
 
@@ -149,7 +149,7 @@ export const Home: React.FC = () => {
                     onBlur={() => {
                       setTimeout(() => setDropdownAberto(false), 200);
                     }}
-                    placeholder={user ? `Qual problema você precisa resolver, ${user.name.split(' ')[0]}?` : 'Qual problema você precisa resolver hoje?'}
+                    placeholder={user ? `Qual problema você precisa resolver, ${profile?.nome.split(' ')[0]}?` : 'Qual problema você precisa resolver hoje?'}
                     className="bg-transparent w-full outline-none text-brand-navy placeholder-gray-500"
                   />
                 </div>
@@ -271,6 +271,7 @@ export const Home: React.FC = () => {
       <ServiceDetailModal
         post={selectedPost}
         onClose={handleCloseDetailModal}
+        isOpen={!!selectedPost}
       />
 
       {isCreateModalOpen && (
