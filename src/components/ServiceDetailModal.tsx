@@ -152,7 +152,7 @@ export default function ServiceDetailModal({ post, isOpen, onClose }: Props) {
             {/* AUTHOR */}
             <div className="flex items-center gap-2 mt-4">
               <img
-                src={post.autorImagemUrl}
+                src={post.cadastro?.imagemUrl || ''}
                 alt=""
                 className="w-8 h-8 rounded-full border border-border"
               />

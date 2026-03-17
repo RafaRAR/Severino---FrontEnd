@@ -118,7 +118,6 @@ export function RegisterPage() {
 
         <Button
           type="submit"
-          loading={isSubmitting}
           disabled={!isValid}
           className="w-full"
         >

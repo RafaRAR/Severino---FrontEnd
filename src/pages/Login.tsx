@@ -101,7 +101,6 @@ export function LoginPage() {
 
         <Button
           type="submit"
-          loading={isSubmitting}
           disabled={!isValid}
           className="w-full"
         >

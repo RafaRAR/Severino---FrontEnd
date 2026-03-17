@@ -112,85 +112,85 @@ const EditProfileModal = ({ isOpen, onClose, userId }: EditProfileModalProps) =>
 
   // Carrega os dados do usuário ao abrir o modal
   useEffect(() => {
-  if (isOpen && userId) {
-    api.get(`/cadastro/getcadastro/${userId}`).then((response) => {
-      const userData = response.data;
-      const address = parseAddress(userData.endereco);
+    if (isOpen && userId) {
+      api.get(`/cadastro/getcadastro/${userId}`).then((response) => {
+        const userData = response.data;
+        const address = parseAddress(userData.endereco);
 
-      // 1. Convertemos a data do banco (ISO) para PT-BR
-      const formattedDate = formatDateToISO(userData.dataNascimento);
+        // 1. Convertemos a data do banco (ISO) para PT-BR
+        const formattedDate = formatDateToISO(userData.dataNascimento);
 
-      const baseData = {
-        ...userData,
-        // 2. Aplicamos as máscaras nos campos formatados
-        cpf: userData.cpf ? maskCPF(userData.cpf) : '',
-        contato: userData.contato ? maskPhone(userData.contato) : '',
-        cep: userData.cep ? maskCEP(userData.cep) : '',
-        dataNascimento: maskDate(formattedDate), // Agora a máscara recebe 03/03/2026
-      };
+        const baseData = {
+          ...userData,
+          // 2. Aplicamos as máscaras nos campos formatados
+          cpf: userData.cpf ? maskCPF(userData.cpf) : '',
+          contato: userData.contato ? maskPhone(userData.contato) : '',
+          cep: userData.cep ? maskCEP(userData.cep) : '',
+          dataNascimento: maskDate(formattedDate), // Agora a máscara recebe 03/03/2026
+        };
 
-      if (address) {
-        reset({ ...baseData, ...address });
-      } else {
-        setAddressWarning(true);
-        reset({
-          ...baseData,
-          rua: '', numero: '', bairro: '', cidade: '', estado: '',
-        });
-      }
-    });
-  }
-}, [isOpen, userId, reset]);
-
-  const onSubmit = async (data: ProfileForm) => {
-  const { rua, numero, bairro, cidade, estado, dataNascimento, ...rest } = data;
-
-  // 1. Converte "04/03/2026" (do formulário) para "2026-03-04" (para o backend)
-  const dateParts = dataNascimento.split('/');
-  const isoDate = dateParts.length === 3 
-    ? `${dateParts[2]}-${dateParts[1]}-${dateParts[0]}` 
-    : dataNascimento;
-
-  // 2. Monta o endereço concatenado como o seu backend exige
-  const endereco = `${rua}, ${numero} - ${bairro}, ${cidade} - ${estado.toUpperCase()}`;
-
-  // 3. O SEGREDO ESTÁ AQUI: Criar o FormData ao invés de um objeto simples!
-  const formData = new FormData();
-  formData.append('Nome', rest.nome);
-  formData.append('Cpf', rest.cpf.replace(/\D/g, ''));
-  formData.append('DataNascimento', isoDate);
-  formData.append('Contato', rest.contato.replace(/\D/g, ''));
-  formData.append('Cep', rest.cep.replace(/\D/g, ''));
-  formData.append('Endereco', endereco);
-  
-  // Obs: Como o modal ainda não tem upload de imagem de perfil, 
-  // nós não enviamos o campo 'Imagem', e o backend deve ignorar.
-
-  try {
-    // 4. Enviamos o formData na requisição
-    await api.put(`/cadastro/updatecadastro/${userId}`, formData);
-
-    toast.success('Perfil atualizado com sucesso!');
-    
-    if (profile) {
-      // Atualiza o estado global para a interface refletir na hora
-      updateProfile({ 
-        ...profile, 
-        nome: rest.nome,
-        cpf: rest.cpf.replace(/\D/g, ''),
-        contato: rest.contato.replace(/\D/g, ''),
-        cep: rest.cep.replace(/\D/g, ''),
-        dataNascimento: isoDate,
-        endereco 
+        if (address) {
+          reset({ ...baseData, ...address });
+        } else {
+          setAddressWarning(true);
+          reset({
+            ...baseData,
+            rua: '', numero: '', bairro: '', cidade: '', estado: '',
+          });
+        }
       });
     }
-      
-    onClose();
-  } catch (error) {
-    toast.error('Erro ao atualizar o perfil. Tente novamente.');
-    console.error(error);
-  }
-};
+  }, [isOpen, userId, reset]);
+
+  const onSubmit = async (data: ProfileForm) => {
+    const { rua, numero, bairro, cidade, estado, dataNascimento, ...rest } = data;
+
+    // 1. Converte "04/03/2026" (do formulário) para "2026-03-04" (para o backend)
+    const dateParts = dataNascimento.split('/');
+    const isoDate = dateParts.length === 3
+      ? `${dateParts[2]}-${dateParts[1]}-${dateParts[0]}`
+      : dataNascimento;
+
+    // 2. Monta o endereço concatenado como o seu backend exige
+    const endereco = `${rua}, ${numero} - ${bairro}, ${cidade} - ${estado.toUpperCase()}`;
+
+    // 3. O SEGREDO ESTÁ AQUI: Criar o FormData ao invés de um objeto simples!
+    const formData = new FormData();
+    formData.append('Nome', rest.nome);
+    formData.append('Cpf', rest.cpf.replace(/\D/g, ''));
+    formData.append('DataNascimento', isoDate);
+    formData.append('Contato', rest.contato.replace(/\D/g, ''));
+    formData.append('Cep', rest.cep.replace(/\D/g, ''));
+    formData.append('Endereco', endereco);
+
+    // Obs: Como o modal ainda não tem upload de imagem de perfil, 
+    // nós não enviamos o campo 'Imagem', e o backend deve ignorar.
+
+    try {
+      // 4. Enviamos o formData na requisição
+      await api.put(`/cadastro/updatecadastro/${userId}`, formData);
+
+      toast.success('Perfil atualizado com sucesso!');
+
+      if (profile) {
+        // Atualiza o estado global para a interface refletir na hora
+        updateProfile({
+          ...profile,
+          nome: rest.nome,
+          cpf: rest.cpf.replace(/\D/g, ''),
+          contato: rest.contato.replace(/\D/g, ''),
+          cep: rest.cep.replace(/\D/g, ''),
+          dataNascimento: isoDate,
+          endereco
+        });
+      }
+
+      onClose();
+    } catch (error) {
+      toast.error('Erro ao atualizar o perfil. Tente novamente.');
+      console.error(error);
+    }
+  };
 
   return (
     <BaseModal title="Editar Perfil" isOpen={isOpen} onClose={onClose}>
@@ -319,8 +319,7 @@ const EditProfileModal = ({ isOpen, onClose, userId }: EditProfileModalProps) =>
           </Button>
           <Button
             type="submit"
-            variant="brand"
-            loading={isSubmitting}
+            variant="default"
             className="font-bold text-white"
           >
             Salvar

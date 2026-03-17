@@ -149,7 +149,7 @@ export const Home: React.FC = () => {
                     onBlur={() => {
                       setTimeout(() => setDropdownAberto(false), 200);
                     }}
-                    placeholder={user ? `Qual problema você precisa resolver, ${user.name.split(' ')[0]}?` : 'Qual problema você precisa resolver hoje?'}
+                    placeholder={user ? `Qual problema você precisa resolver, ${profile?.nome.split(' ')[0]}?` : 'Qual problema você precisa resolver hoje?'}
                     className="bg-transparent w-full outline-none text-brand-navy placeholder-gray-500"
                   />
                 </div>

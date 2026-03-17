@@ -326,7 +326,6 @@ export interface Post extends PostPayload {
   usuarioId: number;
   nomeUsuario: string;
   dataCriacao: string;
-  autorImagemUrl?: string;
   imagemUrl?: string;
   impulsionar?: boolean;
   role?: string;
@@ -337,7 +336,7 @@ export interface Post extends PostPayload {
   // NOVA PARTE ADICIONADA AQUI 👇
   tags?: Tag[]; 
   
-  cadastro?: {
+  cadastro: {
     nome: string;
     cpf: string;
     dataNascimento: string;
