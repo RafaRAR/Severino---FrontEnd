@@ -43,7 +43,15 @@ export const Home: React.FC = () => {
     setIsLoading(true);
     try {
       const fetchedPosts = await getAllPosts();
-      setPosts(fetchedPosts.sort((a, b) => new Date(b.dataCriacao).getTime() - new Date(a.dataCriacao).getTime()));
+      
+      const sortedPosts = [...fetchedPosts].sort((a, b) => {
+      if (a.impulsionar !== b.impulsionar) {
+        return Number(b.impulsionar) - Number(a.impulsionar);
+      }
+      return new Date(b.dataCriacao).getTime() - new Date(a.dataCriacao).getTime();
+    });
+
+      setPosts(sortedPosts);
     } catch (error) {
       console.error('Erro ao buscar anúncios:', error);
     } finally {
@@ -95,7 +103,7 @@ export const Home: React.FC = () => {
   }
 
   // --- LÓGICA DO FILTRO DO DROPDOWN ---
-  const tagsFiltradas = tagsDisponiveis.filter(tag => 
+  const tagsFiltradas = tagsDisponiveis.filter(tag =>
     tag.nome.toLowerCase().includes(buscaTag.toLowerCase()) &&
     !tagsFiltro.includes(tag.id)
   );
@@ -114,7 +122,7 @@ export const Home: React.FC = () => {
   const filteredPosts = posts.filter(post => {
     // 1. O post deve pertencer à aba atual (Cliente ou Prestador)
     const matchesTab = post.role === activeTab;
-    
+
     // 2. Se não houver tags no filtro, mostra todos. 
     // Se houver, o post PRECISA ter pelo menos UMA das tags selecionadas.
     const matchesTags = tagsFiltro.length === 0 || (
@@ -132,7 +140,7 @@ export const Home: React.FC = () => {
         <div className="bg-white shadow-sm rounded-xl p-4 mb-6 relative">
           <div className="flex items-start gap-4">
             {user ? <UserAvatar user={{ nome: user.name, foto: profile?.imagemUrl || undefined }} /> : <div className="w-12 h-12 rounded-full bg-gray-300 flex-shrink-0" />}
-            
+
             <div className="w-full">
               {/* O COMBOBOX INTERATIVO */}
               <div className="relative">
@@ -161,7 +169,7 @@ export const Home: React.FC = () => {
                       <li
                         key={tag.id}
                         onMouseDown={(e) => {
-                          e.preventDefault(); 
+                          e.preventDefault();
                           adicionarFiltro(tag.id);
                         }}
                         className="cursor-pointer px-4 py-2 text-sm text-gray-700 hover:bg-brand-orange hover:text-white transition-colors"
@@ -204,9 +212,9 @@ export const Home: React.FC = () => {
               )}
             </div>
           </div>
-          
+
           <div className="border-t border-gray-100 my-4"></div>
-          
+
           <div className="flex justify-around">
             <button className="flex items-center gap-2 text-gray-600 hover:bg-gray-100 px-4 py-2 rounded-lg transition font-medium" onClick={() => handleCreatePostClick('Cliente')}>
               <Camera size={20} className="text-red-500" />
