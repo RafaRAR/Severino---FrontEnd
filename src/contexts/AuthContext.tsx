@@ -14,12 +14,16 @@ import {
   register as registerRequest,
 } from '../services/api'
 
+export type ModalType = 'login' | 'cadastro' | 'recuperarSenha' | 'editProfile'
+
 interface AuthContextValue {
   user: AuthUser | null
   token: string | null
   isAuthenticated: boolean
   profile: CadastroResponse | null
   isProfileComplete: boolean
+  openModal: ModalType | null
+  setOpenModal: (modal: ModalType | null) => void
   login: (token: string, user: AuthUser) => void
   loginWithCredentials: (payload: LoginPayload) => Promise<void>
   register: (payload: RegisterPayload) => Promise<void>
@@ -38,6 +42,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const [token, setToken] = useState<string | null>(null)
   const [profile, setProfile] = useState<CadastroResponse | null>(null)
   const [isProfileComplete, setProfileComplete] = useState(true)
+  const [openModal, setOpenModal] = useState<ModalType | null>(null)
 
   const fetchProfile = useCallback(async (userId: string) => {
     try {
@@ -125,6 +130,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
         isAuthenticated: !!token,
         profile,
         isProfileComplete,
+        openModal,
+        setOpenModal,
         login,
         loginWithCredentials,
         register: handleRegister,

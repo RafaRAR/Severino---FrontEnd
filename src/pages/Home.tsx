@@ -23,8 +23,7 @@ const UserAvatar = ({ user }: { user: { nome: string; foto?: string } }) => {
 };
 
 export const Home: React.FC = () => {
-  const { user, profile } = useAuth();
-  const navigate = useNavigate();
+  const { user, profile, setOpenModal } = useAuth();
   const [posts, setPosts] = useState<Post[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedPost, setSelectedPost] = useState<Post | null>(null);
@@ -43,13 +42,13 @@ export const Home: React.FC = () => {
     setIsLoading(true);
     try {
       const fetchedPosts = await getAllPosts();
-      
+
       const sortedPosts = [...fetchedPosts].sort((a, b) => {
-      if (a.impulsionar !== b.impulsionar) {
-        return Number(b.impulsionar) - Number(a.impulsionar);
-      }
-      return new Date(b.dataCriacao).getTime() - new Date(a.dataCriacao).getTime();
-    });
+        if (a.impulsionar !== b.impulsionar) {
+          return Number(b.impulsionar) - Number(a.impulsionar);
+        }
+        return new Date(b.dataCriacao).getTime() - new Date(a.dataCriacao).getTime();
+      });
 
       setPosts(sortedPosts);
     } catch (error) {
@@ -79,7 +78,7 @@ export const Home: React.FC = () => {
       setIsCreateModalOpen(true);
     } else {
       alert('Faça login para publicar na plataforma.');
-      navigate('/login');
+      setOpenModal("login")
     }
   };
 

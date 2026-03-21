@@ -10,6 +10,9 @@ import { CompleteProfileModal } from './components/CompleteProfileModal';
 import Header from './components/layout/Header';
 import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
+import LoginModal from './components/LoginModal';
+import CadastroModal from './components/CadastroModal';
+import RecuperarSenhaModal from './components/RecuperarSenhaModal';
 
 // function PrivateRoute({ children }: { children: React.ReactNode }) {
 //   const { isAuthenticated } = useAuth();
@@ -24,7 +27,7 @@ import 'react-toastify/dist/ReactToastify.css';
 // }
 
 export function App() {
-  const { isAuthenticated, isProfileComplete } = useAuth();
+  const { isAuthenticated, isProfileComplete, openModal, setOpenModal } = useAuth();
 
   return (
     <BrowserRouter>
@@ -39,6 +42,7 @@ export function App() {
         draggable
         pauseOnHover
       />
+      <Header />
       <Routes>
         <Route  path="/login" element={<LoginPage />} />
         <Route path="/registrar" element={<RegisterPage />} />
@@ -48,10 +52,7 @@ export function App() {
         <Route
           path="/"
           element={
-            <>
-              <Header />
-              <Home />
-            </>
+            <Home />
           }
         />
       </Routes>
@@ -62,7 +63,20 @@ export function App() {
           // ou o usuário deve ser deslogado se ele fechar sem completar.
         }}
       />
+
+      {/* Modais de Autenticação Globais */}
+      <LoginModal
+        isOpen={openModal === 'login'}
+        onClose={() => setOpenModal(null)}
+      />
+      <CadastroModal
+        isOpen={openModal === 'cadastro'}
+        onClose={() => setOpenModal(null)}
+      />
+      <RecuperarSenhaModal
+        isOpen={openModal === 'recuperarSenha'}
+        onClose={() => setOpenModal(null)}
+      />
     </BrowserRouter>
   );
 }
-
