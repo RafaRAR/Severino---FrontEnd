@@ -30,7 +30,7 @@ const cadastroSchema = z.object({
 type CadastroFormData = z.infer<typeof cadastroSchema>;
 
 export default function CadastroModal({ isOpen, onClose }: CadastroModalProps) {
-    const { setOpenModal, register: registerUser } = useAuth();
+    const { setOpenModal, register: registerUser, setEmailForVerification } = useAuth();
     const [error, setError] = useState<string | null>(null);
 
     const {
@@ -48,9 +48,10 @@ export default function CadastroModal({ isOpen, onClose }: CadastroModalProps) {
         setError(null);
         try {
             await registerUser({ nome: data.name, email: data.email, senha: data.password });
-            toast.success('Cadastro realizado com sucesso! Faça o login para continuar.');
-            onClose();
-            setOpenModal('login');
+            toast.success('Cadastro realizado! Verifique seu e-mail para continuar.');
+            setEmailForVerification(data.email); // Guarda o e-mail para o próximo modal
+            onClose(); // Fecha o modal de cadastro
+            setOpenModal('verifyEmail'); // Abre o modal de verificação
         } catch (err: any) {
             setError(err.message || 'Ocorreu um erro no cadastro. Tente novamente.');
         }

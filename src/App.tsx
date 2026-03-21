@@ -13,12 +13,13 @@ import 'react-toastify/dist/ReactToastify.css';
 import LoginModal from './components/LoginModal';
 import CadastroModal from './components/CadastroModal';
 import RecuperarSenhaModal from './components/RecuperarSenhaModal';
+import VerifyEmailModal from './components/VerifyEmailModal';
 
 // function PrivateRoute({ children }: { children: React.ReactNode }) {
 //   const { isAuthenticated } = useAuth();
 //   return isAuthenticated ? (
 //     <>
-//       <Header />
+      <Header />
 //       {children}
 //     </>
 //   ) : (
@@ -77,6 +78,7 @@ export function App() {
         isOpen={openModal === 'recuperarSenha'}
         onClose={() => setOpenModal(null)}
       />
+      <VerifyEmailModal />
     </BrowserRouter>
   );
 }
