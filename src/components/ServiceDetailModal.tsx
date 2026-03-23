@@ -226,7 +226,12 @@ export default function ServiceDetailModal({ post, isOpen, onClose }: Props) {
             )}
 
             <div className="space-y-4">
-              {comentarios.map((c) => {
+              {comentarios.length === 0 ? (
+    <div className="bg-card border border-border rounded-xl shadow-sm p-4 text-center text-muted-foreground">
+      Não há propostas no momento.
+    </div>
+  ) : (
+              comentarios.map((c) => {
                 const isDono = Number(user?.id) === c.usuario.id;
                 const isEditando = editandoId === c.id;
 
@@ -319,7 +324,7 @@ export default function ServiceDetailModal({ post, isOpen, onClose }: Props) {
                     )}
                   </div>
                 )
-              })}
+              }))}
             </div>
           </div>
         )}
