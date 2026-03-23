@@ -82,7 +82,7 @@ export const ServiceCard: React.FC<ServiceCardProps> = ({ post, onClick, index =
       {/* Corpo do Card */}
       <div className="p-4 flex flex-col flex-grow items-start">
         <div className="flex items-center gap-2 mb-2">
-          <UserAvatar user={{ nomeUsuario: post.cadastro.nome!, autorImagemUrl: post.cadastro.imagemUrl! }} />
+          <UserAvatar user={{ nomeUsuario: post.cadastro?.nome ?? '', autorImagemUrl: post.cadastro?.imagemUrl ?? '' }} />
           <span className="text-sm font-medium text-foreground">{post.nomeUsuario}</span>
           <span className="text-xs text-muted-foreground ml-auto">{formatDate(post.dataCriacao)}</span>
         </div>

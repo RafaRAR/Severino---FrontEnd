@@ -309,6 +309,14 @@ export interface Tag {
   nome: string;
 }
 
+export interface PaginatedResponse<T> {
+  page: number;
+  pageSize: number;
+  total: number;
+  totalPages: number;
+  data: T[];
+}
+
 // --- Post (Anúncio) Endpoints ---
 
 export interface PostPayload {
@@ -361,12 +369,28 @@ export async function createPost(
   }
 }
 
-export async function getAllPosts(): Promise<Post[]> {
+export async function getPosts(page: number = 1, pageSize: number = 50): Promise<Post[]> {
   try {
-    const { data } = await api.get<Post[]>('/post/getposts')
-    return data
+    const { data } = await api.get<Post[]>(`/post/getposts?page=${page}&pageSize=${pageSize}`);
+    return data;
   } catch (error) {
-    throw new Error(toErrorMessage(error))
+    throw new Error(toErrorMessage(error));
+  }
+}
+
+export async function buscarPosts(
+  termo: string,
+  page: number = 1,
+  pageSize: number = 50,
+): Promise<PaginatedResponse<Post>> {
+  try {
+    const { data } = await api.post<PaginatedResponse<Post>>(
+      `/Post/getpost/buscar?page=${page}&pageSize=${pageSize}`,
+      { termo },
+    );
+    return data;
+  } catch (error) {
+    throw new Error(toErrorMessage(error));
   }
 }
 
