@@ -279,10 +279,10 @@ export const Home: React.FC = () => {
               <Wrench size={20} className="text-blue-500" />
               <span>Oferecer Serviço</span>
             </button>
-            <button className="flex items-center gap-2 text-white bg-gradient-to-r from-purple-500 to-indigo-600 hover:from-purple-600 hover:to-indigo-700 shadow-md px-4 py-2 rounded-lg transition font-medium" onClick={() => alert('Funcionalidade de IA em breve!')}>
+            {/* <button className="flex items-center gap-2 text-white bg-gradient-to-r from-purple-500 to-indigo-600 hover:from-purple-600 hover:to-indigo-700 shadow-md px-4 py-2 rounded-lg transition font-medium" onClick={() => alert('Funcionalidade de IA em breve!')}>
               <span className="font-bold text-lg">✨</span>
               <span>Criar com IA</span>
-            </button>
+            </button> */}
           </div>
         </div>
 
