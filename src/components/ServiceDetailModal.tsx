@@ -198,32 +198,44 @@ export default function ServiceDetailModal({ post, isOpen, onClose }: Props) {
           <div className="mt-8 border-t border-border pt-6">
             <h3 className="font-display text-lg font-bold text-foreground mb-4">Propostas Recebidas</h3>
 
-            {user && profile?.nome != post.cadastro?.nome && (
-              <div className="bg-secondary rounded-xl p-4 mb-6">
-                <textarea
-                  className="w-full border border-border rounded-xl px-4 py-3 bg-card text-foreground text-sm h-20 resize-none mb-3"
-                  placeholder="Descreva como você vai resolver..."
-                  value={novoComentario}
-                  onChange={(e) => setNovoComentario(e.target.value)}
-                />
-                <div className="flex gap-3 items-center">
-                  <div className="relative flex-1 max-w-[160px]">
-                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">R$</span>
-                    <input
-                      type="number"
-                      className="w-full border border-border rounded-xl pl-9 pr-4 py-3 bg-card text-foreground text-sm tabular-nums"
-                      placeholder="0,00"
-                      value={novoValorDeLance}
-                      onChange={(e) => setNovoValorDeLance(e.target.value)}
-                    />
-                  </div>
-                  <Button size="lg" onClick={handleEnviarComentario} disabled={carregandoComentarios}>
-                    <Send className="w-4 h-4" />
-                    Enviar Proposta
-                  </Button>
-                </div>
-              </div>
-            )}
+            {profile?.nome !== post.cadastro?.nome && (
+        <div className="bg-secondary rounded-xl p-4 mb-6">
+          <textarea
+            className="w-full border border-border rounded-xl px-4 py-3 bg-card text-foreground text-sm h-20 resize-none mb-3"
+            placeholder="Descreva como você vai resolver..."
+            value={novoComentario}
+            onChange={(e) => setNovoComentario(e.target.value)}
+            disabled={!user || carregandoComentarios}  
+          />
+          <div className="flex gap-3 items-center">
+            <div className="relative flex-1 max-w-[160px]">
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">R$</span>
+              <input
+                type="number"
+                className="w-full border border-border rounded-xl pl-9 pr-4 py-3 bg-card text-foreground text-sm tabular-nums"
+                placeholder="0,00"
+                value={novoValorDeLance}
+                onChange={(e) => setNovoValorDeLance(e.target.value)}
+                disabled={!user || carregandoComentarios}  
+              />
+            </div>
+            <Button
+              size="lg"
+              onClick={handleEnviarComentario}
+              disabled={!user || carregandoComentarios} 
+            >
+              <Send className="w-4 h-4" />
+              Enviar Proposta
+            </Button>
+          </div>
+
+        {!user && (
+          <p className="text-xs text-muted-foreground mt-3 flex items-center gap-1">
+            ⚠️ Para enviar uma proposta, realize o login na plataforma.
+          </p>
+        )}
+      </div>
+)}
 
             <div className="space-y-4">
               {comentarios.length === 0 ? (
