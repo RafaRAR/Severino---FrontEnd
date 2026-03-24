@@ -133,20 +133,38 @@ function normalizeAuthResponse(
   return { token, user }
 }
 
-function toErrorMessage(error: unknown) {
+function toErrorMessage(error: unknown): string {
   if (axios.isAxiosError(error)) {
-    const axiosError = error as AxiosError<unknown>
-    const status = axiosError.response?.status
+    const axiosError = error as AxiosError<{ message?: string; error?: string; title?: string; detail?: string; errors?: any }>;
+    const data = axiosError.response?.data;
 
-    if (status === 401) return 'E-mail ou senha inválidos.'
-    if (status === 400) return 'Dados inválidos. Verifique e tente novamente.'
-    if (status === 409) return 'E-mail já cadastrado.'
+    // Priority 1: Specific message properties in response data object
+    if (data && typeof data === 'object') {
+      if (data.message && typeof data.message === 'string') return data.message;
+      if (data.error && typeof data.error === 'string') return data.error;
+      if (data.title && typeof data.title === 'string') return data.title;
+      if (data.detail && typeof data.detail === 'string') return data.detail;
+    }
 
-    return 'Não foi possível concluir a requisição. Tente novamente em instantes.'
+    // Priority 2: Response data is just a plain string
+       if (typeof data === 'string' && (data as string).length > 0 && (data as string).length < 200) { // Avoid returning whole HTML pages
+        return data;
+    }
+
+    // Priority 3: Fallback to generic status-based messages
+    const status = axiosError.response?.status;
+    if (status === 401) return 'E-mail ou senha inválidos.';
+    if (status === 400) return 'Dados inválidos. Verifique e tente novamente.';
+    if (status === 409) return 'E-mail já cadastrado.';
+    
+    // Priority 4: Generic Axios/network error message
+    return 'Não foi possível concluir a requisição. Tente novamente em instantes.';
   }
 
-  if (error instanceof Error) return error.message
-  return 'Ocorreu um erro inesperado.'
+  // Handle non-Axios errors
+  if (error instanceof Error) return error.message;
+
+  return 'Ocorreu um erro inesperado.';
 }
 
 export async function login(payload: LoginPayload): Promise<AuthResponse> {
