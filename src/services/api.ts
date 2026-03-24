@@ -369,9 +369,9 @@ export async function createPost(
   }
 }
 
-export async function getPosts(page: number = 1, pageSize: number = 50): Promise<Post[]> {
+export async function getPosts(page: number = 1, pageSize: number = 50, role: 'Cliente' | 'Prestador'): Promise<Post[]> {
   try {
-    const { data } = await api.get<Post[]>(`/post/getposts?page=${page}&pageSize=${pageSize}`);
+    const { data } = await api.get<Post[]>(`/post/getposts?page=${page}&pageSize=${pageSize}&role=${role}`);
     return data;
   } catch (error) {
     throw new Error(toErrorMessage(error));
@@ -382,10 +382,11 @@ export async function buscarPosts(
   termo: string,
   page: number = 1,
   pageSize: number = 50,
+  role: 'Cliente' | 'Prestador'
 ): Promise<PaginatedResponse<Post>> {
   try {
     const { data } = await api.post<PaginatedResponse<Post>>(
-      `/Post/getpost/buscar?page=${page}&pageSize=${pageSize}`,
+      `/Post/getpost/buscar?page=${page}&pageSize=${pageSize}&role=${role}`,
       { termo },
     );
     return data;
