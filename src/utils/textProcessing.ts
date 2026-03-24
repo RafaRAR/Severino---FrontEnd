@@ -10,7 +10,7 @@ const STOP_WORDS = new Set([
   'cada', 'qualquer', 'outros', 'outras', 'mesmo', 'mesma', 'mais', 'menos',
   'agora', 'ainda', 'sempre', 'nunca', 'talvez', 'além', 'abaixo', 'acima',
   'aqui', 'ali', 'lá', 'antes', 'depois', 'durante', 'sobre', 'sob', 'até',
-  'não', 'sim', 'olá', 'chamo', 'preciso'
+  'não', 'sim', 'olá', 'chamo', 'preciso', 'santos', 'ofereço', 'toda', 'região', 'souza', 'marcelo', 'pereira'
 ]);
 
 // Define a basic Post type for the function signature
