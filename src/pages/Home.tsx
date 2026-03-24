@@ -255,11 +255,6 @@ export const Home: React.FC = () => {
                     placeholder={user ? `O que você precisa hoje, ${profile?.nome.split(' ')[0]}?` : 'Buscar por serviços ou profissionais...'}
                     className="w-full bg-gray-100 border-2 border-transparent rounded-l-xl p-3 pr-4 text-brand-navy placeholder-gray-500 focus:bg-white focus:border-brand-orange focus:outline-none transition-colors"
                   />
-                  {activeSearchTerm && (
-                     <button onClick={clearSearchAndReturnToFeed} className="bg-gray-200 text-gray-600 px-3 h-full font-semibold hover:bg-gray-300 transition-colors flex items-center">
-                       <X size={20} />
-                     </button>
-                  )}
                   <button onClick={handleSearch} className="bg-brand-orange text-white px-6 py-3 h-full rounded-r-xl font-semibold hover:bg-orange-600 transition-colors flex items-center">
                     <Search size={20} className="mr-2 hidden sm:inline" />
                     Buscar
@@ -297,6 +292,15 @@ export const Home: React.FC = () => {
                   </div>
                 )}
               </div>
+              {activeSearchTerm && (
+                <div 
+                  onClick={clearSearchAndReturnToFeed}
+                  className="flex items-center gap-1 text-sm font-medium text-gray-500 hover:text-red-500 transition-colors mt-2 px-2 py-1 rounded-md hover:bg-red-50 cursor-pointer"
+                >
+                  <X size={16} />
+                  <span>Limpar Filtros</span>
+                </div>
+              )}
             </div>
           </div>
           <div className="border-t border-gray-100 my-4"></div>
