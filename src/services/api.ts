@@ -16,9 +16,6 @@ api.interceptors.request.use((config) => {
   return config
 })
 
-// As rotas reais estão no backend (Render). Mantemos aqui apenas a instância Axios
-// e helpers de normalização de resposta/erro.
-
 export interface AuthUser {
   id: string;
   name: string;
@@ -138,7 +135,6 @@ function toErrorMessage(error: unknown): string {
     const axiosError = error as AxiosError<{ message?: string; error?: string; title?: string; detail?: string; errors?: any }>;
     const data = axiosError.response?.data;
 
-    // Priority 1: Specific message properties in response data object
     if (data && typeof data === 'object') {
       if (data.message && typeof data.message === 'string') return data.message;
       if (data.error && typeof data.error === 'string') return data.error;
@@ -146,31 +142,25 @@ function toErrorMessage(error: unknown): string {
       if (data.detail && typeof data.detail === 'string') return data.detail;
     }
 
-    // Priority 2: Response data is just a plain string
-       if (typeof data === 'string' && (data as string).length > 0 && (data as string).length < 200) { // Avoid returning whole HTML pages
-        return data;
+    if (typeof data === 'string' && (data as string).length > 0 && (data as string).length < 200) {
+      return data;
     }
 
-    // Priority 3: Fallback to generic status-based messages
     const status = axiosError.response?.status;
     if (status === 401) return 'E-mail ou senha inválidos.';
     if (status === 400) return 'Dados inválidos. Verifique e tente novamente.';
     if (status === 409) return 'E-mail já cadastrado.';
     
-    // Priority 4: Generic Axios/network error message
     return 'Não foi possível concluir a requisição. Tente novamente em instantes.';
   }
 
-  // Handle non-Axios errors
   if (error instanceof Error) return error.message;
-
   return 'Ocorreu um erro inesperado.';
 }
 
 export async function login(payload: LoginPayload): Promise<AuthResponse> {
   try {
     const { data } = await api.post('/Usuario/login', payload)
-
     return normalizeAuthResponse(data, { email: payload.email })
   } catch (error) {
     throw new Error(toErrorMessage(error))
@@ -320,8 +310,6 @@ export async function updateCadastro(
   }
 }
 
-
-// Adicione esta interface nova
 export interface Tag {
   id: number;
   nome: string;
@@ -347,21 +335,18 @@ export interface PostPayload {
   impulsionar?: boolean;
 }
 
+// 🔁 NOVA INTERFACE COM MÚLTIPLAS IMAGENS
 export interface Post extends PostPayload {
   id: number;
   usuarioId: number;
   nomeUsuario: string;
   dataCriacao: string;
-  imagemUrl?: string;
+  imagens: { id: number; url: string }[];   
   impulsionar?: boolean;
   role?: string;
-  // Optional fields to match ServiceCard
   categoria?: string;
   comentarios?: number;
-
-  // NOVA PARTE ADICIONADA AQUI 👇
-  tags?: Tag[]; 
-  
+  tags?: Tag[];
   cadastro: {
     nome: string;
     cpf: string;
@@ -469,29 +454,23 @@ export interface ComentarioPayload {
   valorDeLance: number;
 }
 
-// Criar Comentário
 export async function criarComentario(usuarioId: number | string, dados: ComentarioPayload): Promise<Comentario> {
   const { data } = await api.post(`/Post/Comentario/comentar/${usuarioId}`, dados);
   return data;
 }
 
-// Buscar Comentários do Post
 export async function getComentariosPorPost(postId: number | string): Promise<Comentario[]> {
   const { data } = await api.get(`/Post/Comentario/getcomentarioporpost/${postId}`);
   return data;
 }
 
-// Deletar Comentário
 export async function deletarComentario(comentarioId: number | string): Promise<void> {
   await api.delete(`/Post/Comentario/comentario/${comentarioId}`);
 }
 
-// Editar Comentário
 export async function editarComentario(comentarioId: number | string, conteudo: string, valorDeLance: number): Promise<Comentario> {
-  // Colocamos o ID tanto no path quanto na query string para o backend aceitar
   const { data } = await api.put(`/Post/Comentario/editarcomentario/${comentarioId}?id=${comentarioId}`, { conteudo, valorDeLance });
   return data;
 }
 
 export { TOKEN_STORAGE_KEY }
-

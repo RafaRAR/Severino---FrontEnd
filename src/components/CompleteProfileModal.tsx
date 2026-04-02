@@ -163,7 +163,9 @@ export function CompleteProfileModal({ isOpen, onClose }: CompleteProfileModalPr
       reset();
       onClose();
     } catch (e) {
+      console.log("Erro ao completar o perfil:", e);
       setSubmitError(e instanceof Error ? e.message : 'Não foi possível completar o perfil.');
+      console.log("Erro ao completar o perfil:", submitError);
     }
   }
 

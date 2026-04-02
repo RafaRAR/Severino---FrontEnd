@@ -8,12 +8,14 @@ import { MapPin, UploadCloud, X } from 'lucide-react';
 import {
   createPost,
   fetchCep,
-  api, 
-  type Tag, 
+  api,
+  type Tag,
 } from '../services/api';
 import { useAuth } from '../hooks/useAuth';
 import { maskCEP, maskPhone } from '../utils/masks';
 import { BaseModal } from './ui/BaseModal';
+
+const MAX_IMAGES = 5;
 
 // Schema for the Create Post form
 const postFormSchema = z.object({
@@ -42,36 +44,41 @@ interface CreatePostModalProps {
   roleSelecionada: 'Cliente' | 'Prestador';
 }
 
-export const CreatePostModal: React.FC<CreatePostModalProps> = ({ isOpen, onClose, onPostCreated, roleSelecionada }) => {
+export const CreatePostModal: React.FC<CreatePostModalProps> = ({
+  isOpen,
+  onClose,
+  onPostCreated,
+  roleSelecionada,
+}) => {
   const { user, profile } = useAuth();
   const [loadingCep, setLoadingCep] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
-  const [imageFile, setImageFile] = useState<File | null>(null);
-  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  
+  // --- MÚLTIPLAS IMAGENS ---
+  const [imageFiles, setImageFiles] = useState<File[]>([]);
+  const [previewUrls, setPreviewUrls] = useState<string[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // --- ESTADOS DAS TAGS ---
+  // --- TAGS ---
   const [tagsDisponiveis, setTagsDisponiveis] = useState<Tag[]>([]);
   const [tagsSelecionadas, setTagsSelecionadas] = useState<number[]>([]);
-  
-  // --- ESTADOS DO DROPDOWN ---
   const [buscaTag, setBuscaTag] = useState('');
   const [dropdownAberto, setDropdownAberto] = useState(false);
 
-  // Lógica de filtragem do dropdown
-  const tagsFiltradas = tagsDisponiveis.filter(tag => 
-    tag.nome.toLowerCase().includes(buscaTag.toLowerCase()) &&
-    !tagsSelecionadas.includes(tag.id)
+  const tagsFiltradas = tagsDisponiveis.filter(
+    (tag) =>
+      tag.nome.toLowerCase().includes(buscaTag.toLowerCase()) &&
+      !tagsSelecionadas.includes(tag.id)
   );
 
   const adicionarTag = (id: number) => {
-    setTagsSelecionadas(prev => [...prev, id]);
-    setBuscaTag(''); 
-    setDropdownAberto(false); 
+    setTagsSelecionadas((prev) => [...prev, id]);
+    setBuscaTag('');
+    setDropdownAberto(false);
   };
 
   const removerTag = (id: number) => {
-    setTagsSelecionadas(prev => prev.filter(tagId => tagId !== id));
+    setTagsSelecionadas((prev) => prev.filter((tagId) => tagId !== id));
   };
 
   const {
@@ -85,10 +92,10 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({ isOpen, onClos
     resolver: zodResolver(postFormSchema),
     defaultValues: {
       impulsionar: false,
-    }
+    },
   });
 
-  // --- EFEITO PARA BUSCAR AS TAGS DO BACKEND ---
+  // Carregar tags quando o modal abrir
   useEffect(() => {
     if (isOpen) {
       const fetchTags = async () => {
@@ -96,48 +103,86 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({ isOpen, onClos
           const { data } = await api.get<Tag[]>('/Tag');
           setTagsDisponiveis(data);
         } catch (error) {
-          console.error("Erro ao carregar as tags:", error);
+          console.error('Erro ao carregar as tags:', error);
         }
       };
       fetchTags();
     } else {
-      // Limpa os estados quando o modal fechar
+      // Limpar estados ao fechar
       setTagsSelecionadas([]);
       setBuscaTag('');
       setDropdownAberto(false);
+      // Limpar imagens
+      setImageFiles([]);
+      setPreviewUrls([]);
     }
   }, [isOpen]);
 
+  // --- LÓGICA PARA MÚLTIPLAS IMAGENS ---
   const handleImageChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (file) {
-      setImageFile(file);
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setPreviewUrl(reader.result as string);
-      };
-      reader.readAsDataURL(file);
+    const files = Array.from(event.target.files || []);
+    if (files.length === 0) return;
+
+    // Validar número máximo
+    if (imageFiles.length + files.length > MAX_IMAGES) {
+      setSubmitError(`Você pode enviar no máximo ${MAX_IMAGES} imagens.`);
+      return;
     }
+
+    // Validar tipo e tamanho (opcional: limite de 10MB por imagem)
+    const validFiles = files.filter((file) => {
+      const isValidType = file.type.startsWith('image/');
+      const isValidSize = file.size <= 10 * 1024 * 1024; // 10MB
+      if (!isValidType) setSubmitError(`Arquivo ${file.name} não é uma imagem válida.`);
+      if (!isValidSize) setSubmitError(`Arquivo ${file.name} excede 10MB.`);
+      return isValidType && isValidSize;
+    });
+
+    if (validFiles.length === 0) return;
+
+    // Gerar previews
+    const newPreviews = validFiles.map((file) => URL.createObjectURL(file));
+
+    setImageFiles((prev) => [...prev, ...validFiles]);
+    setPreviewUrls((prev) => [...prev, ...newPreviews]);
+    setSubmitError(null);
   };
 
-  const lookupCep = useCallback(async (cep: string) => {
-    const cleanCep = (cep || '').replace(/\D/g, '');
-    if (cleanCep.length !== 8) return;
+  const removeImage = (index: number) => {
+    // Revogar URL para evitar vazamento de memória
+    URL.revokeObjectURL(previewUrls[index]);
+    setImageFiles((prev) => prev.filter((_, i) => i !== index));
+    setPreviewUrls((prev) => prev.filter((_, i) => i !== index));
+  };
 
-    setLoadingCep(true);
-    try {
-      const data = await fetchCep(cleanCep);
-      if (data.logradouro) setValue('rua', data.logradouro);
-      if (data.bairro) setValue('bairro', data.bairro);
-      if (data.localidade) setValue('cidade', data.localidade);
-      if (data.uf) setValue('estado', data.uf);
-      setFocus('numero');
-    } catch (e) {
-      console.error(e);
-    } finally {
-      setLoadingCep(false);
-    }
-  }, [setValue, setFocus]);
+  // Limpar previews ao desmontar
+  useEffect(() => {
+    return () => {
+      previewUrls.forEach((url) => URL.revokeObjectURL(url));
+    };
+  }, [previewUrls]);
+
+  const lookupCep = useCallback(
+    async (cep: string) => {
+      const cleanCep = (cep || '').replace(/\D/g, '');
+      if (cleanCep.length !== 8) return;
+
+      setLoadingCep(true);
+      try {
+        const data = await fetchCep(cleanCep);
+        if (data.logradouro) setValue('rua', data.logradouro);
+        if (data.bairro) setValue('bairro', data.bairro);
+        if (data.localidade) setValue('cidade', data.localidade);
+        if (data.uf) setValue('estado', data.uf);
+        setFocus('numero');
+      } catch (e) {
+        console.error(e);
+      } finally {
+        setLoadingCep(false);
+      }
+    },
+    [setValue, setFocus]
+  );
 
   const cepValue = watch('cep');
   const handleCepBlur = useCallback(() => {
@@ -162,12 +207,14 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({ isOpen, onClos
 
   const onSubmit = async (data: PostFormData) => {
     if (!user?.id || !roleSelecionada) {
-      setSubmitError("Você precisa estar logado para criar um anúncio.");
+      setSubmitError('Você precisa estar logado para criar um anúncio.');
       return;
     }
 
     const formData = new FormData();
-    const endereco = `${data.rua}, ${data.numero}${data.complemento ? `, ${data.complemento}` : ''} - ${data.bairro}, ${data.cidade} - ${data.estado.toUpperCase()}`;
+    const endereco = `${data.rua}, ${data.numero}${
+      data.complemento ? `, ${data.complemento}` : ''
+    } - ${data.bairro}, ${data.cidade} - ${data.estado.toUpperCase()}`;
 
     formData.append('titulo', data.titulo);
     formData.append('conteudo', data.conteudo);
@@ -177,46 +224,51 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({ isOpen, onClos
     formData.append('role', roleSelecionada);
     formData.append('impulsionar', String(!!data.impulsionar));
 
-    // --- ENVIANDO AS TAGS NO FORMDATA ---
+    // Tags
     tagsSelecionadas.forEach((tagId) => {
       formData.append('TagIds', tagId.toString());
     });
 
-    if (imageFile) {
-      formData.append('Imagem', imageFile);
-    }
+    // Múltiplas imagens: usar a mesma chave 'Imagens' (plural)
+    imageFiles.forEach((file) => {
+      formData.append('Imagens', file);
+    });
 
     try {
       await createPost(user.id, formData);
       onPostCreated();
-      onClose(); 
+      onClose();
     } catch (error) {
-      setSubmitError(error instanceof Error ? error.message : "Falha ao criar anúncio.");
+      setSubmitError(error instanceof Error ? error.message : 'Falha ao criar anúncio.');
     }
   };
 
   return (
-    <BaseModal title={roleSelecionada === 'Cliente' ? 'Pedir Ajuda' : 'Oferecer Serviço'} isOpen={isOpen} onClose={onClose}>
+    <BaseModal
+      title={roleSelecionada === 'Cliente' ? 'Pedir Ajuda' : 'Oferecer Serviço'}
+      isOpen={isOpen}
+      onClose={onClose}
+    >
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-
+        {/* --- SEÇÃO DE MÚLTIPLAS IMAGENS --- */}
         <div className="space-y-2">
           <label className="block text-sm font-medium text-brand-navy">
-            Imagem do Anúncio (Opcional)
+            Imagens do Anúncio (Opcional - até {MAX_IMAGES} imagens)
           </label>
+
+          {/* Botão de upload */}
           <div
             className="mt-2 flex justify-center items-center p-6 border-2 border-gray-300 border-dashed rounded-xl cursor-pointer hover:border-brand-orange transition-colors"
             onClick={() => fileInputRef.current?.click()}
           >
             <div className="text-center">
-              {previewUrl ? (
-                <img src={previewUrl} alt="Preview do post" className="mx-auto h-28 w-auto rounded-lg object-cover" />
-              ) : (
-                <div className="flex flex-col items-center gap-2 text-gray-500">
-                  <UploadCloud size={40} />
-                  <span className="font-semibold text-brand-navy">Clique para carregar uma imagem</span>
-                  <span className="text-xs">PNG, JPG, GIF até 10MB</span>
-                </div>
-              )}
+              <UploadCloud size={40} className="mx-auto text-gray-500" />
+              <span className="font-semibold text-brand-navy">
+                Clique para selecionar imagens
+              </span>
+              <span className="text-xs text-gray-500 block">
+                PNG, JPG, GIF até 10MB cada (máx. {MAX_IMAGES})
+              </span>
             </div>
           </div>
           <input
@@ -224,24 +276,61 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({ isOpen, onClos
             ref={fileInputRef}
             onChange={handleImageChange}
             accept="image/*"
+            multiple
             className="hidden"
           />
+
+          {/* Grid de previews */}
+          {previewUrls.length > 0 && (
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 mt-3">
+              {previewUrls.map((url, idx) => (
+                <div key={idx} className="relative group aspect-square">
+                  <img
+                    src={url}
+                    alt={`Preview ${idx + 1}`}
+                    className="w-full h-full object-cover rounded-lg shadow-md"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => removeImage(idx)}
+                    className="absolute -top-2 -right-2 bg-red-600 text-white rounded-full p-1 shadow-md hover:bg-red-700 transition-colors"
+                    aria-label="Remover imagem"
+                  >
+                    <X size={16} />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
 
-        <Input label="Título do Anúncio" {...register('titulo')} error={errors.titulo?.message} variant="light" />
-        
+        <Input
+          label="Título do Anúncio"
+          {...register('titulo')}
+          error={errors.titulo?.message}
+          variant="light"
+        />
+
         <div>
-          <label className="block text-sm font-medium text-brand-navy mb-1">Descrição</label>
-          <textarea {...register('conteudo')} className="w-full rounded-xl border border-gray-300 bg-white px-4 py-3 text-sm text-brand-navy placeholder:text-gray-400 outline-none transition focus:border-brand-navy focus:ring-1 focus:ring-brand-navy disabled:bg-gray-100 shadow-md" rows={4}></textarea>
-          {errors.conteudo && <span className="text-xs text-red-500">{errors.conteudo.message}</span>}
+          <label className="block text-sm font-medium text-brand-navy mb-1">
+            Descrição
+          </label>
+          <textarea
+            {...register('conteudo')}
+            className="w-full rounded-xl border border-gray-300 bg-white px-4 py-3 text-sm text-brand-navy placeholder:text-gray-400 outline-none transition focus:border-brand-navy focus:ring-1 focus:ring-brand-navy disabled:bg-gray-100 shadow-md"
+            rows={4}
+          />
+          {errors.conteudo && (
+            <span className="text-xs text-red-500">{errors.conteudo.message}</span>
+          )}
         </div>
 
-        {/* --- NOVA SEÇÃO DE TAGS (COM BUSCA/DROPDOWN) --- */}
+        {/* SEÇÃO DE TAGS */}
         <div className="pt-2 pb-2">
           <label className="block text-sm font-medium text-brand-navy mb-2">
             Categorias do Serviço
           </label>
-          
+
           <div className="relative">
             <input
               type="text"
@@ -264,7 +353,7 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({ isOpen, onClos
                   <li
                     key={tag.id}
                     onMouseDown={(e) => {
-                      e.preventDefault(); 
+                      e.preventDefault();
                       adicionarTag(tag.id);
                     }}
                     className="cursor-pointer px-4 py-2 text-sm text-gray-700 hover:bg-brand-orange hover:text-white transition-colors"
@@ -284,7 +373,7 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({ isOpen, onClos
           {tagsSelecionadas.length > 0 && (
             <div className="flex flex-wrap gap-2 mt-3">
               {tagsSelecionadas.map((tagId) => {
-                const tag = tagsDisponiveis.find(t => t.id === tagId);
+                const tag = tagsDisponiveis.find((t) => t.id === tagId);
                 if (!tag) return null;
                 return (
                   <span
@@ -305,13 +394,19 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({ isOpen, onClos
             </div>
           )}
         </div>
-        {/* --- FIM DA SEÇÃO DE TAGS --- */}
 
+        {/* ENDEREÇO E CONTATO */}
         <div className="border-t border-gray-200 pt-4">
           <div className="flex justify-between items-center mb-2">
-            <h3 className="text-lg font-semibold text-brand-navy">Endereço e Contato</h3>
+            <h3 className="text-lg font-semibold text-brand-navy">
+              Endereço e Contato
+            </h3>
             {profile && (
-              <button type="button" onClick={handleUseProfileAddress} className="flex items-center gap-1 text-sm text-brand-orange hover:underline">
+              <button
+                type="button"
+                onClick={handleUseProfileAddress}
+                className="flex items-center gap-1 text-sm text-brand-orange hover:underline"
+              >
                 <MapPin size={16} />
                 Usar meu endereço de cadastro
               </button>
@@ -319,30 +414,80 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({ isOpen, onClos
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <Input label="CEP" {...register('cep')} onBlur={handleCepBlur} onChange={(e) => {
-              const masked = maskCEP(e.target.value);
-              e.target.value = masked;
-              register('cep').onChange(e);
-            }} error={errors.cep?.message} variant="light" placeholder="00000-000" />
-            <Input label="Rua" {...register('rua')} error={errors.rua?.message} variant="light" disabled={loadingCep} />
+            <Input
+              label="CEP"
+              {...register('cep')}
+              onBlur={handleCepBlur}
+              onChange={(e) => {
+                const masked = maskCEP(e.target.value);
+                e.target.value = masked;
+                register('cep').onChange(e);
+              }}
+              error={errors.cep?.message}
+              variant="light"
+              placeholder="00000-000"
+            />
+            <Input
+              label="Rua"
+              {...register('rua')}
+              error={errors.rua?.message}
+              variant="light"
+              disabled={loadingCep}
+            />
           </div>
           <div className="grid grid-cols-1 md:grid-cols-[1fr_1fr_2fr] gap-4 mt-4">
-            <Input label="Número" {...register('numero')} error={errors.numero?.message} variant="light" />
-            <Input label="UF" {...register('estado')} error={errors.estado?.message} variant="light" disabled={loadingCep} maxLength={2} />
-            <Input label="Cidade" {...register('cidade')} error={errors.cidade?.message} variant="light" disabled={loadingCep} />
+            <Input
+              label="Número"
+              {...register('numero')}
+              error={errors.numero?.message}
+              variant="light"
+            />
+            <Input
+              label="UF"
+              {...register('estado')}
+              error={errors.estado?.message}
+              variant="light"
+              disabled={loadingCep}
+              maxLength={2}
+            />
+            <Input
+              label="Cidade"
+              {...register('cidade')}
+              error={errors.cidade?.message}
+              variant="light"
+              disabled={loadingCep}
+            />
           </div>
           <div className="mt-4">
-            <Input label="Bairro" {...register('bairro')} error={errors.bairro?.message} variant="light" disabled={loadingCep} />
+            <Input
+              label="Bairro"
+              {...register('bairro')}
+              error={errors.bairro?.message}
+              variant="light"
+              disabled={loadingCep}
+            />
           </div>
           <div className="mt-4">
-            <Input label="Complemento (Opcional)" {...register('complemento')} error={errors.complemento?.message} variant="light" />
+            <Input
+              label="Complemento (Opcional)"
+              {...register('complemento')}
+              error={errors.complemento?.message}
+              variant="light"
+            />
           </div>
           <div className="mt-4">
-            <Input label="Contato (WhatsApp)" {...register('contato')} onChange={(e) => {
-              const masked = maskPhone(e.target.value);
-              e.target.value = masked;
-              register('contato').onChange(e);
-            }} error={errors.contato?.message} variant="light" placeholder="(11) 99999-9999" />
+            <Input
+              label="Contato (WhatsApp)"
+              {...register('contato')}
+              onChange={(e) => {
+                const masked = maskPhone(e.target.value);
+                e.target.value = masked;
+                register('contato').onChange(e);
+              }}
+              error={errors.contato?.message}
+              variant="light"
+              placeholder="(11) 99999-9999"
+            />
           </div>
         </div>
 
@@ -360,8 +505,16 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({ isOpen, onClos
 
         {submitError && <p className="text-sm text-red-500">{submitError}</p>}
         <div className="flex justify-end gap-4 pt-4">
-          <Button type="button" variant="outline" onClick={onClose}>Cancelar</Button>
-          <Button type="submit" variant="default" className="font-bold text-white hover:bg-orange-600">Criar Anúncio</Button>
+          <Button type="button" variant="outline" onClick={onClose}>
+            Cancelar
+          </Button>
+          <Button
+            type="submit"
+            variant="default"
+            className="font-bold text-white hover:bg-orange-600"
+          >
+            Criar Anúncio
+          </Button>
         </div>
       </form>
     </BaseModal>

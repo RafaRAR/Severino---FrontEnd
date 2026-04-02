@@ -37,7 +37,9 @@ const UserAvatar = ({ user }: { user: { nomeUsuario: string; autorImagemUrl: str
 export const ServiceCard: React.FC<ServiceCardProps> = ({ post, onClick, index = 0 }) => {
   const isPedido = post.type === 'pedidos';
 
-  // Lógica original de badges (mantida), mas usando as classes CSS de tema do componente 2
+  // Obtém a primeira imagem do array (se existir)
+  const capaUrl = post.imagens && post.imagens.length > 0 ? post.imagens[0].url : null;
+
   const renderBadge = () => {
     if (!post.impulsionar) return null;
 
@@ -65,14 +67,14 @@ export const ServiceCard: React.FC<ServiceCardProps> = ({ post, onClick, index =
       initial={{ opacity: 0, scale: 0.95 }}
       animate={{ opacity: 1, scale: 1 }}
       transition={{ duration: 0.3, delay: index * 0.05, ease: [0.2, 0.8, 0.2, 1] }}
-      onClick={onClick} // O processo original de clique através de props é mantido aqui
+      onClick={onClick}
       className="bg-card rounded-xl shadow-sm hover:shadow-card transition-shadow duration-150 cursor-pointer overflow-hidden flex flex-col"
     >
-      {/* Imagem principal seguindo o layout UI 2 */}
-      {post.imagemUrl && (
+      {/* Imagem principal: usa a primeira imagem do array, se disponível */}
+      {capaUrl && (
         <div className="aspect-video overflow-hidden">
           <img
-            src={post.imagemUrl}
+            src={capaUrl}
             alt={post.titulo}
             className="w-full h-full object-cover border-b border-border"
           />
