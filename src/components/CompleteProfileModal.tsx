@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect,  useRef } from 'react'
+import { useState, useCallback, useEffect, useRef } from 'react'
 import { useForm, Controller } from 'react-hook-form'
 import { z } from 'zod'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -37,6 +37,7 @@ const profileSchema = z.object({
   bairro: z.string().min(1, 'Informe o bairro'),
   cidade: z.string().min(1, 'Informe a cidade'),
   estado: z.string().length(2, 'UF deve ter 2 letras'),
+  tipoUsuario: z.number().int().min(0).max(1, 'Selecione um tipo de usuário'),
 })
 
 type ProfileFormData = z.infer<typeof profileSchema>
@@ -46,14 +47,13 @@ interface CompleteProfileModalProps {
   onClose: () => void
 }
 
-
 export function CompleteProfileModal({ isOpen, onClose }: CompleteProfileModalProps) {
   const { user, updateProfile } = useAuth()
   const [submitError, setSubmitError] = useState<string | null>(null)
   const [loadingCep, setLoadingCep] = useState(false)
-  const [imageFile, setImageFile] = useState<File | null>(null);
-  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [imageFile, setImageFile] = useState<File | null>(null)
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   const {
     control,
@@ -79,6 +79,7 @@ export function CompleteProfileModal({ isOpen, onClose }: CompleteProfileModalPr
       bairro: '',
       cidade: '',
       estado: '',
+      tipoUsuario: 0,
     },
   })
 
@@ -89,16 +90,16 @@ export function CompleteProfileModal({ isOpen, onClose }: CompleteProfileModalPr
   }, [user, setValue])
 
   const handleImageChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
+    const file = event.target.files?.[0]
     if (file) {
-        setImageFile(file);
-        const reader = new FileReader();
-        reader.onloadend = () => {
-            setPreviewUrl(reader.result as string);
-        };
-        reader.readAsDataURL(file);
+      setImageFile(file)
+      const reader = new FileReader()
+      reader.onloadend = () => {
+        setPreviewUrl(reader.result as string)
+      }
+      reader.readAsDataURL(file)
     }
-  };
+  }
 
   const cepValue = watch('cep')
   const handleCepBlur = useCallback(async () => {
@@ -130,24 +131,25 @@ export function CompleteProfileModal({ isOpen, onClose }: CompleteProfileModalPr
     }
     setSubmitError(null)
 
-    const formData = new FormData();
-    const enderecoCompleto = `${data.rua}, ${data.numero} - ${data.bairro}, ${data.cidade} - ${data.estado.toUpperCase()}`;
+    const formData = new FormData()
+    const enderecoCompleto = `${data.rua}, ${data.numero} - ${data.bairro}, ${data.cidade} - ${data.estado.toUpperCase()}`
 
-    formData.append('nome', data.nome);
-    formData.append('cpf', stripDigits(data.cpf));
-    formData.append('dataNascimento', data.dataNascimento);
-    formData.append('contato', stripDigits(data.contato));
-    formData.append('cep', stripDigits(data.cep));
-    formData.append('endereco', enderecoCompleto);
-    
+    formData.append('nome', data.nome)
+    formData.append('cpf', stripDigits(data.cpf))
+    formData.append('dataNascimento', data.dataNascimento)
+    formData.append('contato', stripDigits(data.contato))
+    formData.append('cep', stripDigits(data.cep))
+    formData.append('endereco', enderecoCompleto)
+    formData.append('tipoUsuario', String(data.tipoUsuario))
+
     if (imageFile) {
-        formData.append('Imagem', imageFile);
+      formData.append('Imagem', imageFile)
     }
 
     try {
-      await cadastrar(user.id, formData);
-      
-      const { rua, numero, bairro, cidade, estado, ...restOfData } = data;
+      await cadastrar(user.id, formData)
+
+      const { rua, numero, bairro, cidade, estado, ...restOfData } = data
       const profileForUpdate = {
         ...restOfData,
         endereco: enderecoCompleto,
@@ -155,53 +157,53 @@ export function CompleteProfileModal({ isOpen, onClose }: CompleteProfileModalPr
         contato: stripDigits(data.contato),
         cep: stripDigits(data.cep),
         usuarioId: parseInt(user.id, 10),
-      };
+        tipoUsuario: data.tipoUsuario,
+        prestadorVerificado: false,
+      }
 
       if (user) {
-        updateProfile(profileForUpdate);
+        updateProfile(profileForUpdate)
       }
-      reset();
-      onClose();
+      reset()
+      onClose()
     } catch (e) {
-      console.log("Erro ao completar o perfil:", e);
-      setSubmitError(e instanceof Error ? e.message : 'Não foi possível completar o perfil.');
-      console.log("Erro ao completar o perfil:", submitError);
+      console.log('Erro ao completar o perfil:', e)
+      setSubmitError(e instanceof Error ? e.message : 'Não foi possível completar o perfil.')
     }
   }
 
-
   return (
     <BaseModal title="Complete seu Perfil" isOpen={isOpen} isBlocking>
-        <p className="mb-6 text-center text-gray-500 -mt-4">
-          Preencha seus dados para podermos começar.
-        </p>
+      <p className="mb-6 text-center text-gray-500 -mt-4">
+        Preencha seus dados para podermos começar.
+      </p>
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
         <div className="flex flex-col items-center space-y-4">
-            <div className="relative group">
-                <div
-                    className="h-28 w-28 rounded-full bg-gray-200 flex items-center justify-center cursor-pointer overflow-hidden border-2 border-transparent group-hover:border-brand-orange transition-all"
-                    onClick={() => fileInputRef.current?.click()}
-                >
-                    {previewUrl ? (
-                        <img src={previewUrl} alt="Avatar Preview" className="h-full w-full object-cover" />
-                    ) : (
-                        <User size={48} className="text-gray-500" />
-                    )}
-                    <div className="absolute inset-0 bg-black bg-opacity-40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                        <p className="text-white text-sm font-semibold">Alterar</p>
-                    </div>
-                </div>
-                <input
-                    type="file"
-                    ref={fileInputRef}
-                    onChange={handleImageChange}
-                    accept="image/*"
-                    className="hidden"
-                />
+          <div className="relative group">
+            <div
+              className="h-28 w-28 rounded-full bg-gray-200 flex items-center justify-center cursor-pointer overflow-hidden border-2 border-transparent group-hover:border-brand-orange transition-all"
+              onClick={() => fileInputRef.current?.click()}
+            >
+              {previewUrl ? (
+                <img src={previewUrl} alt="Avatar Preview" className="h-full w-full object-cover" />
+              ) : (
+                <User size={48} className="text-gray-500" />
+              )}
+              <div className="absolute inset-0 bg-black bg-opacity-40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                <p className="text-white text-sm font-semibold">Alterar</p>
+              </div>
             </div>
-            <p className="text-sm text-gray-500 -mt-2">Foto de Perfil (Opcional)</p>
+            <input
+              type="file"
+              ref={fileInputRef}
+              onChange={handleImageChange}
+              accept="image/*"
+              className="hidden"
+            />
+          </div>
+          <p className="text-sm text-gray-500 -mt-2">Foto de Perfil (Opcional)</p>
         </div>
-        
+
         <fieldset disabled={isSubmitting} className="space-y-4 pt-2">
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
             <Input
@@ -305,6 +307,41 @@ export function CompleteProfileModal({ isOpen, onClose }: CompleteProfileModalPr
             variant="light"
             disabled={loadingCep}
           />
+
+          {/* Tipo de usuário */}
+          <div className="space-y-2">
+            <label className="block text-sm font-medium text-foreground">
+              Tipo de Usuário
+            </label>
+            <Controller
+              name="tipoUsuario"
+              control={control}
+              render={({ field }) => (
+                <div className="flex flex-col sm:flex-row gap-4">
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="radio"
+                      checked={field.value === 0}
+                      onChange={() => field.onChange(0)}
+                      className="h-4 w-4 text-brand-orange focus:ring-brand-orange"
+                    />
+                    <span className="text-sm">Cliente (preciso de serviços)</span>
+                  </label>
+
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="radio"
+                      checked={field.value === 1}
+                      onChange={() => field.onChange(1)}
+                      className="h-4 w-4 text-brand-orange focus:ring-brand-orange"
+                    />
+                    <span className="text-sm">Prestador (ofereço serviços)</span>
+                  </label>
+                </div>
+              )}
+            />
+            {errors.tipoUsuario && <p className="text-xs text-red-500">{errors.tipoUsuario.message}</p>}
+          </div>
 
           {loadingCep && <p className="mt-2 text-sm text-gray-500">Buscando CEP...</p>}
         </fieldset>

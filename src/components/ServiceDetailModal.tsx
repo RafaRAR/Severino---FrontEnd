@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { MapPin, Phone, Send, Trash2, Edit2, X, Check, MessageSquare, CheckCircle, ChevronLeft, ChevronRight } from "lucide-react";
+import { MapPin, Phone, Send, Trash2, Edit2, X, Check, MessageSquare, CheckCircle, ChevronLeft, ChevronRight, BadgeCheck } from "lucide-react";
 
 import {
   type Post,
@@ -159,7 +159,7 @@ export default function ServiceDetailModal({ post, isOpen, onClose }: Props) {
                     alt={`Imagem ${currentImageIndex + 1} de ${post.titulo}`}
                     className="w-full h-full object-cover"
                   />
-                  
+
                   {/* Setas de navegação (exibidas apenas se houver mais de 1 imagem) */}
                   {hasMultipleImages && (
                     <>
@@ -177,18 +177,17 @@ export default function ServiceDetailModal({ post, isOpen, onClose }: Props) {
                       >
                         <ChevronRight size={20} />
                       </button>
-                      
+
                       {/* Indicadores (dots) */}
                       <div className="absolute bottom-2 left-0 right-0 flex justify-center gap-1.5">
                         {imagens.map((_, idx) => (
                           <button
                             key={idx}
                             onClick={() => setCurrentImageIndex(idx)}
-                            className={`h-1.5 rounded-full transition-all ${
-                              idx === currentImageIndex
+                            className={`h-1.5 rounded-full transition-all ${idx === currentImageIndex
                                 ? "w-4 bg-white"
                                 : "w-1.5 bg-white/60 hover:bg-white/80"
-                            }`}
+                              }`}
                             aria-label={`Ir para imagem ${idx + 1}`}
                           />
                         ))}
@@ -226,6 +225,9 @@ export default function ServiceDetailModal({ post, isOpen, onClose }: Props) {
               <span className="text-sm font-medium text-foreground truncate">
                 {post.cadastro?.nome || post.nomeUsuario}
               </span>
+              {post.cadastro?.prestadorVerificado && (
+                <BadgeCheck className="w-4 h-4 text-blue-500 fill-blue-500" />
+              )}
               {post.cadastro?.endereco && (
                 <span className="text-xs text-muted-foreground flex items-center gap-1 ml-auto max-w-[40%] truncate">
                   <MapPin className="w-3 h-3 shrink-0" />

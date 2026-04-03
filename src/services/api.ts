@@ -1,6 +1,8 @@
 import axios, { AxiosError } from 'axios'
 
 const API_BASE_URL = 'https://severino-backend-lqhl.onrender.com/api'
+
+// const API_BASE_URL = 'https://localhost:7023/api'
 const TOKEN_STORAGE_KEY = 'severino_token'
 
 export const api = axios.create({
@@ -30,6 +32,7 @@ export interface CadastroPayload {
   contato: string;
   cep: string;
   endereco: string;
+  tipoUsuario: number; // 0 = Cliente, 1 = Prestador
 }
 
 export interface AuthResponse {
@@ -288,6 +291,8 @@ export interface CadastroResponse {
   contato: string;
   cep: string;
   endereco: string;
+  tipoUsuario: number;      // 0 = Cliente, 1 = Prestador, 2 = Admin
+  prestadorVerificado: boolean;
 }
 
 export async function getCadastro(usuarioId: string): Promise<CadastroResponse> {
@@ -355,6 +360,7 @@ export interface Post extends PostPayload {
     cep: string;
     contato: string;
     imagemUrl: string | null;
+    prestadorVerificado: boolean | null;
   }
 }
 
@@ -471,6 +477,51 @@ export async function deletarComentario(comentarioId: number | string): Promise<
 export async function editarComentario(comentarioId: number | string, conteudo: string, valorDeLance: number): Promise<Comentario> {
   const { data } = await api.put(`/Post/Comentario/editarcomentario/${comentarioId}?id=${comentarioId}`, { conteudo, valorDeLance });
   return data;
+}
+
+// --- VERIFICAÇÃO (KYC) ---
+
+export const SituacaoVerificacao = {
+  Aguardando: 0,
+  Aprovado: 1,
+  Rejeitado: 2,
+} as const;
+
+export type SituacaoVerificacao = typeof SituacaoVerificacao[keyof typeof SituacaoVerificacao];
+
+
+export interface Verificacao {
+  id: number;
+  usuarioId: number;
+  imagemUrl: string;
+  imagemFileId?: string;
+  situacao: SituacaoVerificacao;
+  updatedBy?: { id: number; nome: string };
+  dataSolicitacao: string;
+  dataAvaliacao?: string;
+  nomeCadastro?: string;
+}
+
+// Para o Usuário
+export const getEstadoVerificacao = (cadastroId: number) => 
+  api.get<Verificacao>(`/Verificacao/getestadoverificacao/${cadastroId}`);
+
+// Para o Admin
+
+  export async function getEstadoVerificacaoGeral(): Promise<Verificacao[]> {
+  const response = await  api.get<Verificacao[]>('/Verificacao/getestadoverificacaogeral');
+
+  return response.data
+}
+
+// Ação do Admin (PUT)
+export const avaliarVerificacao = (verificacaoId: number, adminId: number, situacao: number) =>
+  api.put(`/Verificacao/avaliar/${verificacaoId}`, { adminId, situacao });
+
+  export async function enviarVerificacao(cadastroId: number, formData: FormData): Promise<void> {
+  const response = await  api.post<Verificacao>(`/Verificacao/enviarverificacao/${cadastroId}`, formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  });
 }
 
 export { TOKEN_STORAGE_KEY }

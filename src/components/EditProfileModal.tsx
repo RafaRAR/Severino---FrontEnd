@@ -5,12 +5,12 @@ import * as z from 'zod';
 import { BaseModal } from './ui/BaseModal';
 import { Input } from './ui/Input';
 import { Button } from './ui/Button';
-import { api } from '../services/api';
+import { api, type CadastroResponse, getEstadoVerificacao, SituacaoVerificacao } from '../services/api';
 import { useAuth } from '../hooks/useAuth';
 import { maskCEP, maskCPF, maskDate, maskPhone } from '../utils/masks';
 import { toast } from 'react-toastify';
+import { VerificationModal } from './VerificationModal';
 
-// Schema idêntico ao original
 const profileSchema = z.object({
   nome: z.string().min(1, 'Nome é obrigatório'),
   cpf: z.string().length(14, 'CPF inválido'),
@@ -32,17 +32,18 @@ interface EditProfileModalProps {
   userId: string;
 }
 
-// Converte "2026-03-03" para "03/03/2026"
-const formatDateToISO = (dateStr: string) => {
-  if (!dateStr) return '';
-  const [year, month, day] = dateStr.split('-');
-  return `${day}/${month}/${year}`;
-};
-
 const EditProfileModal = ({ isOpen, onClose, userId }: EditProfileModalProps) => {
   const { profile, updateProfile } = useAuth();
   const [loadingCep, setLoadingCep] = useState(false);
   const [addressWarning, setAddressWarning] = useState(false);
+
+  // Estados do fluxo de prestador
+  const [isBecomingProvider, setIsBecomingProvider] = useState(false);
+  const [showVerificationModal, setShowVerificationModal] = useState(false);
+
+  // NOVOS ESTADOS: Para controlar a verificação
+  const [verificacaoStatus, setVerificacaoStatus] = useState<number | null>(null);
+  const [loadingVerificacao, setLoadingVerificacao] = useState(false);
 
   const {
     control,
@@ -60,10 +61,16 @@ const EditProfileModal = ({ isOpen, onClose, userId }: EditProfileModalProps) =>
 
   const cepValue = watch('cep');
 
-  // Função auxiliar para extrair apenas dígitos
+  // Limpar checkbox e buscar status ao abrir
+  useEffect(() => {
+    if (!isOpen) {
+      setIsBecomingProvider(false);
+      setVerificacaoStatus(null);
+    }
+  }, [isOpen]);
+
   const cleanCep = useCallback((cep: string) => (cep || '').replace(/\D/g, ''), []);
 
-  // Busca endereço via CEP (disparada no onBlur)
   const handleCepBlur = useCallback(async () => {
     const cepDigits = cleanCep(cepValue);
     if (cepDigits.length !== 8) return;
@@ -77,12 +84,10 @@ const EditProfileModal = ({ isOpen, onClose, userId }: EditProfileModalProps) =>
         setError('cep', { message: 'CEP não encontrado' });
         return;
       }
-      // Preenche os campos de endereço apenas se houver dados
       setValue('rua', data.logradouro || '', { shouldValidate: true });
       setValue('bairro', data.bairro || '', { shouldValidate: true });
       setValue('cidade', data.localidade || '', { shouldValidate: true });
       setValue('estado', data.uf || '', { shouldValidate: true });
-      // Foca no número para agilizar a edição
       setTimeout(() => {
         const numeroInput = document.querySelector<HTMLInputElement>('input[name="numero"]');
         numeroInput?.focus();
@@ -94,7 +99,6 @@ const EditProfileModal = ({ isOpen, onClose, userId }: EditProfileModalProps) =>
     }
   }, [cepValue, setValue, setError, clearErrors]);
 
-  // Parse do endereço concatenado salvo no backend
   const parseAddress = (address: string) => {
     const parts = address.split(' - ');
     if (parts.length === 3) {
@@ -110,23 +114,19 @@ const EditProfileModal = ({ isOpen, onClose, userId }: EditProfileModalProps) =>
     return null;
   };
 
-  // Carrega os dados do usuário ao abrir o modal
+  // Carregar dados do perfil e Status da Verificação
   useEffect(() => {
     if (isOpen && userId) {
-      api.get(`/cadastro/getcadastro/${userId}`).then((response) => {
+      api.get<CadastroResponse>(`/cadastro/getcadastro/${userId}`).then((response) => {
         const userData = response.data;
         const address = parseAddress(userData.endereco);
-
-        // 1. Convertemos a data do banco (ISO) para PT-BR
         const formattedDate = formatDateToISO(userData.dataNascimento);
-
         const baseData = {
           ...userData,
-          // 2. Aplicamos as máscaras nos campos formatados
           cpf: userData.cpf ? maskCPF(userData.cpf) : '',
           contato: userData.contato ? maskPhone(userData.contato) : '',
           cep: userData.cep ? maskCEP(userData.cep) : '',
-          dataNascimento: maskDate(formattedDate), // Agora a máscara recebe 03/03/2026
+          dataNascimento: maskDate(formattedDate),
         };
 
         if (address) {
@@ -139,22 +139,43 @@ const EditProfileModal = ({ isOpen, onClose, userId }: EditProfileModalProps) =>
           });
         }
       });
+
+      // NOVO: Busca o status de verificação se for prestador e não verificado
+      if (profile?.tipoUsuario === 1 && !profile?.prestadorVerificado) {
+        setLoadingVerificacao(true);
+        getEstadoVerificacao(Number(profile.id))
+          .then((res) => {
+            if (res.data) {
+              setVerificacaoStatus(res.data.situacao);
+            }
+          })
+          .catch((err) => {
+            // Se der erro (ex: 404), assumimos que não enviou ainda
+            console.log("Verificação não encontrada ou erro:", err);
+            setVerificacaoStatus(null);
+          })
+          .finally(() => {
+            setLoadingVerificacao(false);
+          });
+      }
     }
-  }, [isOpen, userId, reset]);
+  }, [isOpen, userId, reset, profile?.tipoUsuario, profile?.prestadorVerificado]);
+
+  const formatDateToISO = (dateStr: string) => {
+    if (!dateStr) return '';
+    const [year, month, day] = dateStr.split('-');
+    return `${day}/${month}/${year}`;
+  };
 
   const onSubmit = async (data: ProfileForm) => {
     const { rua, numero, bairro, cidade, estado, dataNascimento, ...rest } = data;
-
-    // 1. Converte "04/03/2026" (do formulário) para "2026-03-04" (para o backend)
     const dateParts = dataNascimento.split('/');
     const isoDate = dateParts.length === 3
       ? `${dateParts[2]}-${dateParts[1]}-${dateParts[0]}`
       : dataNascimento;
 
-    // 2. Monta o endereço concatenado como o seu backend exige
     const endereco = `${rua}, ${numero} - ${bairro}, ${cidade} - ${estado.toUpperCase()}`;
 
-    // 3. O SEGREDO ESTÁ AQUI: Criar o FormData ao invés de um objeto simples!
     const formData = new FormData();
     formData.append('Nome', rest.nome);
     formData.append('Cpf', rest.cpf.replace(/\D/g, ''));
@@ -163,17 +184,22 @@ const EditProfileModal = ({ isOpen, onClose, userId }: EditProfileModalProps) =>
     formData.append('Cep', rest.cep.replace(/\D/g, ''));
     formData.append('Endereco', endereco);
 
-    // Obs: Como o modal ainda não tem upload de imagem de perfil, 
-    // nós não enviamos o campo 'Imagem', e o backend deve ignorar.
+    let novoTipoUsuario = profile?.tipoUsuario;
+    if (isBecomingProvider && profile?.tipoUsuario === 0) {
+      novoTipoUsuario = 1;
+      formData.append('tipoUsuario', '1');
+    }
 
     try {
-      // 4. Enviamos o formData na requisição
       await api.put(`/cadastro/updatecadastro/${userId}`, formData);
 
-      toast.success('Perfil atualizado com sucesso!');
+      if (isBecomingProvider && profile?.tipoUsuario === 0) {
+        setShowVerificationModal(true);
+      } else {
+        toast.success('Perfil atualizado com sucesso!');
+      }
 
       if (profile) {
-        // Atualiza o estado global para a interface refletir na hora
         updateProfile({
           ...profile,
           nome: rest.nome,
@@ -181,152 +207,209 @@ const EditProfileModal = ({ isOpen, onClose, userId }: EditProfileModalProps) =>
           contato: rest.contato.replace(/\D/g, ''),
           cep: rest.cep.replace(/\D/g, ''),
           dataNascimento: isoDate,
-          endereco
+          endereco,
+          tipoUsuario: novoTipoUsuario ?? profile.tipoUsuario,
         });
       }
 
-      onClose();
+      if (!showVerificationModal) onClose();
     } catch (error) {
-      toast.error('Erro ao atualizar o perfil. Tente novamente.');
-      console.error(error);
+      toast.error('Erro ao atualizar o perfil.');
     }
   };
 
+  // Quando o modal de verificação fechar, nós recarregamos o status para atualizar a tela!
+  const handleVerificationClose = () => {
+    setShowVerificationModal(false);
+
+    // Recarrega o status após enviar
+    if (profile?.id) {
+      setLoadingVerificacao(true);
+      getEstadoVerificacao(Number(profile.id))
+        .then((res) => setVerificacaoStatus(res.data?.situacao ?? null))
+        .catch(() => setVerificacaoStatus(null))
+        .finally(() => setLoadingVerificacao(false));
+    }
+  };
+
+  const isCliente = profile?.tipoUsuario === 0;
+  const isPrestador = profile?.tipoUsuario === 1;
+  const isVerificado = profile?.prestadorVerificado === true;
+
   return (
-    <BaseModal title="Editar Perfil" isOpen={isOpen} onClose={onClose}>
-      <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
-        <div className="flex justify-between items-center bg-gray-100 p-3 rounded-lg">
-          <p className="text-sm font-medium text-gray-600">Sua conta:</p>
-        </div>
+    <>
+      <BaseModal title="Editar Perfil" isOpen={isOpen} onClose={onClose}>
+        <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
+          <fieldset className="space-y-4 pt-2" disabled={isSubmitting}>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <Input label="Nome Completo" {...register('nome')} error={errors.nome?.message} variant="light" />
+              <Controller
+                name="cpf"
+                control={control}
+                render={({ field }) => (
+                  <Input
+                    label="CPF"
+                    {...field}
+                    onChange={(e) => field.onChange(maskCPF(e.target.value))}
+                    error={errors.cpf?.message}
+                    variant="light"
+                  />
+                )}
+              />
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <Controller
+                name="dataNascimento"
+                control={control}
+                render={({ field }) => (
+                  <Input
+                    label="Data de Nascimento"
+                    {...field}
+                    onChange={(e) => field.onChange(maskDate(e.target.value))}
+                    error={errors.dataNascimento?.message}
+                    variant="light"
+                  />
+                )}
+              />
+              <Controller
+                name="contato"
+                control={control}
+                render={({ field }) => (
+                  <Input
+                    label="Contato"
+                    {...field}
+                    onChange={(e) => field.onChange(maskPhone(e.target.value))}
+                    error={errors.contato?.message}
+                    variant="light"
+                  />
+                )}
+              />
+            </div>
+            <div className="grid grid-cols-1 items-start gap-4 md:grid-cols-[1fr_2fr]">
+              <Controller
+                name="cep"
+                control={control}
+                render={({ field }) => (
+                  <Input
+                    label="CEP"
+                    {...field}
+                    onBlur={handleCepBlur}
+                    onChange={(e) => field.onChange(maskCEP(e.target.value))}
+                    error={errors.cep?.message}
+                    variant="light"
+                  />
+                )}
+              />
+              <Input label="Rua" {...register('rua')} error={errors.rua?.message} variant="light" disabled={loadingCep} />
+            </div>
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-[1fr_2fr_1fr]">
+              <Input label="Número" {...register('numero')} error={errors.numero?.message} variant="light" />
+              <Input label="Bairro" {...register('bairro')} error={errors.bairro?.message} variant="light" disabled={loadingCep} />
+              <Input label="Estado" {...register('estado')} error={errors.estado?.message} variant="light" disabled={loadingCep} maxLength={2} />
+            </div>
+            <Input label="Cidade" {...register('cidade')} error={errors.cidade?.message} variant="light" disabled={loadingCep} />
+          </fieldset>
 
-        <fieldset className="space-y-4 pt-2" disabled={isSubmitting}>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <Input
-              label="Nome Completo"
-              {...register('nome')}
-              error={errors.nome?.message}
-              variant="light"
-            />
-            <Controller
-              name="cpf"
-              control={control}
-              render={({ field }) => (
-                <Input
-                  label="CPF"
-                  {...field}
-                  onChange={(e) => field.onChange(maskCPF(e.target.value))}
-                  error={errors.cpf?.message}
-                  variant="light"
+          {loadingCep && <p className="text-sm text-gray-500">Buscando CEP...</p>}
+          {addressWarning && !loadingCep && (
+            <p className="text-orange-500">Digite seu CEP para alterar o endereço.</p>
+          )}
+
+          {/* Seção condicional de prestador */}
+          {isCliente && (
+            <div className="mt-4">
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={isBecomingProvider}
+                  onChange={(e) => setIsBecomingProvider(e.target.checked)}
+                  className="h-4 w-4 rounded border-gray-300 text-brand-orange focus:ring-brand-orange"
                 />
+                <span className="text-sm font-medium text-foreground">
+                  Desejo me tornar um Prestador de Serviços na plataforma
+                </span>
+              </label>
+              {isBecomingProvider && (
+                <div className="mt-2 p-3 rounded-lg bg-yellow-50 text-yellow-800 text-sm">
+                  ⚠️ Atenção: A mudança para perfil de Prestador é <strong>irreversível</strong>.
+                </div>
               )}
-            />
-          </div>
+            </div>
+          )}
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <Controller
-              name="dataNascimento"
-              control={control}
-              render={({ field }) => (
-                <Input
-                  label="Data de Nascimento"
-                  {...field}
-                  onChange={(e) => field.onChange(maskDate(e.target.value))}
-                  error={errors.dataNascimento?.message}
-                  variant="light"
-                />
+          {/* NOVO: Bloco de visualização dinâmica do Status da Verificação */}
+          {isPrestador && !isVerificado && (
+            <div className="mt-4">
+              {loadingVerificacao ? (
+                <p className="text-sm text-gray-500 text-center py-2">Consultando status de verificação...</p>
+              ) : (
+                <>
+                  {verificacaoStatus === SituacaoVerificacao.Aguardando && (
+                    <div className="p-4 rounded-lg bg-yellow-50 text-yellow-800 border border-yellow-200">
+                      ⏳ Seus documentos foram enviados e estão <strong>aguardando avaliação</strong>. Em breve você receberá um retorno.
+                    </div>
+                  )}
+
+                  {verificacaoStatus === SituacaoVerificacao.Rejeitado && (
+                    <div className="p-4 rounded-lg bg-red-50 text-red-800 border border-red-200">
+                      <p className="text-sm">
+                        ❌ Sua verificação de perfil foi <strong>recusada</strong>. Por favor, verifique a qualidade da imagem ou do documento e tente novamente.
+                      </p>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        className="mt-3 w-full border-red-300 text-red-700 hover:bg-red-100"
+                        onClick={() => setShowVerificationModal(true)}
+                      >
+                        Enviar Novamente
+                      </Button>
+                    </div>
+                  )}
+
+                  {(verificacaoStatus === null || verificacaoStatus === undefined) && (
+                    <div className="p-4 rounded-lg bg-blue-50 text-blue-800 border border-blue-200">
+                      <p className="text-sm mb-2">
+                        Aumente sua credibilidade! Envie uma foto do seu documento para ganhar o selo de Profissional Verificado.
+                      </p>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => setShowVerificationModal(true)}
+                      >
+                        Verificar Perfil
+                      </Button>
+                    </div>
+                  )}
+                </>
               )}
-            />
-            <Controller
-              name="contato"
-              control={control}
-              render={({ field }) => (
-                <Input
-                  label="Contato"
-                  {...field}
-                  onChange={(e) => field.onChange(maskPhone(e.target.value))}
-                  error={errors.contato?.message}
-                  variant="light"
-                />
-              )}
-            />
+            </div>
+          )}
+
+          {isPrestador && isVerificado && (
+            <div className="mt-4 p-3 rounded-lg bg-green-50 text-green-800 border border-green-200">
+              ✅ Seu perfil de prestador está verificado! 🏆
+            </div>
+          )}
+
+          <div className="pt-4 flex justify-end space-x-4">
+            <Button type="button" variant="outline" onClick={onClose} className="font-bold">
+              Cancelar
+            </Button>
+            <Button type="submit" variant="default" className="font-bold text-white" disabled={isSubmitting}>
+              Salvar
+            </Button>
           </div>
+        </form>
+      </BaseModal>
 
-          <div className="grid grid-cols-1 items-start gap-4 md:grid-cols-[1fr_2fr]">
-            <Controller
-              name="cep"
-              control={control}
-              render={({ field }) => (
-                <Input
-                  label="CEP"
-                  {...field}
-                  onBlur={handleCepBlur}
-                  onChange={(e) => field.onChange(maskCEP(e.target.value))}
-                  error={errors.cep?.message}
-                  variant="light"
-                />
-              )}
-            />
-            <Input
-              label="Rua"
-              {...register('rua')}
-              error={errors.rua?.message}
-              variant="light"
-              disabled={loadingCep}
-            />
-          </div>
-
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-[1fr_2fr_1fr]">
-            <Input
-              label="Número"
-              {...register('numero')}
-              error={errors.numero?.message}
-              variant="light"
-            />
-            <Input
-              label="Bairro"
-              {...register('bairro')}
-              error={errors.bairro?.message}
-              variant="light"
-              disabled={loadingCep}
-            />
-            <Input
-              label="Estado"
-              {...register('estado')}
-              error={errors.estado?.message}
-              variant="light"
-              disabled={loadingCep}
-              maxLength={2}
-            />
-          </div>
-
-          <Input
-            label="Cidade"
-            {...register('cidade')}
-            error={errors.cidade?.message}
-            variant="light"
-            disabled={loadingCep}
-          />
-        </fieldset>
-
-        {loadingCep && <p className="text-sm text-gray-500">Buscando CEP...</p>}
-        {addressWarning && !loadingCep && (
-          <p className="text-orange-500">Digite seu CEP para alterar o endereço.</p>
-        )}
-
-        <div className="pt-4 flex justify-end space-x-4">
-          <Button type="button" variant="outline" onClick={onClose} className="font-bold">
-            Cancelar
-          </Button>
-          <Button
-            type="submit"
-            variant="default"
-            className="font-bold text-white"
-          >
-            Salvar
-          </Button>
-        </div>
-      </form>
-    </BaseModal>
+      {profile?.id && (
+        <VerificationModal
+          isOpen={showVerificationModal}
+          onClose={handleVerificationClose}
+          cadastroId={profile.id}
+        />
+      )}
+    </>
   );
 };
 

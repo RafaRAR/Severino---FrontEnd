@@ -1,6 +1,6 @@
 import React from 'react';
 import { motion } from 'framer-motion';
-import { MessageSquare, MapPin } from 'lucide-react';
+import { MessageSquare, MapPin, BadgeCheck } from 'lucide-react';
 import { formatDate } from '../../utils/date';
 import type { Post as ApiPost } from '../../services/api';
 
@@ -86,6 +86,9 @@ export const ServiceCard: React.FC<ServiceCardProps> = ({ post, onClick, index =
         <div className="flex items-center gap-2 mb-2">
           <UserAvatar user={{ nomeUsuario: post.cadastro?.nome ?? '', autorImagemUrl: post.cadastro?.imagemUrl ?? '' }} />
           <span className="text-sm font-medium text-foreground">{post.nomeUsuario}</span>
+          {post.cadastro?.prestadorVerificado  && (
+      <BadgeCheck className="w-4 h-4 text-blue-500 fill-blue-500" />
+    )}
           <span className="text-xs text-muted-foreground ml-auto">{formatDate(post.dataCriacao)}</span>
         </div>
 
