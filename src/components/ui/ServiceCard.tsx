@@ -85,7 +85,7 @@ export const ServiceCard: React.FC<ServiceCardProps> = ({ post, onClick, index =
       <div className="p-4 flex flex-col flex-grow items-start">
         <div className="flex items-center gap-2 mb-2">
           <UserAvatar user={{ nomeUsuario: post.cadastro?.nome ?? '', autorImagemUrl: post.cadastro?.imagemUrl ?? '' }} />
-          <span className="text-sm font-medium text-foreground">{post.nomeUsuario}</span>
+          <span className="text-sm font-medium text-foreground">{post.cadastro?.nome}</span>
           {post.cadastro?.prestadorVerificado  && (
       <BadgeCheck className="w-4 h-4 text-blue-500 fill-blue-500" />
     )}
