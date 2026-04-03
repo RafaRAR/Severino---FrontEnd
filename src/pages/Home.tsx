@@ -1,26 +1,26 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { ServiceCard } from '../components/ui/ServiceCard';
 import { CreatePostModal } from '../components/CreatePostModal';
-import {
-  getPosts,
-  buscarPosts,
-  api,
-  type Post,
-  type Tag,
+import { 
+  getPosts, 
+  buscarPosts, 
+  api, 
+  type Post, 
+  type Tag, 
   type PaginatedResponse,
   getEstadoVerificacaoGeral,
   avaliarVerificacao,
-  SituacaoVerificacao
+  getUserPosts
 } from '../services/api';
 import { useAuth } from '../hooks/useAuth';
-import { Loader2, Camera, Wrench, Search, ChevronDown, ChevronUp, X, Check, Ban } from 'lucide-react';
+import { Loader2, Camera, Wrench, Search, ChevronDown, ChevronUp, X, Check, Ban, UserCircle } from 'lucide-react';
 import ServiceDetailModal from '../components/ServiceDetailModal';
 import { extractFrequentKeywords } from '../utils/textProcessing';
 import { toast } from 'react-toastify';
 
 const PAGE_SIZE = 50;
 
-// Tipagem local expandida baseada no seu payload (mova para api.ts se preferir)
+// Tipagem local expandida
 export interface VerificacaoAdmin {
   id: number;
   usuarioId: number;
@@ -45,7 +45,7 @@ const UserAvatar = ({ user }: { user: { nome: string; foto?: string } }) => {
   );
 };
 
-// --- Sorting Helper ---
+// Sorting Helper
 const sortPosts = (posts: Post[]): Post[] => {
   return [...posts].sort((a, b) => {
     const aBoosted = a.impulsionar === true;
@@ -63,9 +63,9 @@ export const Home: React.FC = () => {
   const [selectedPost, setSelectedPost] = useState<Post | null>(null);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [selectedRoleForPost, setSelectedRoleForPost] = useState<'Cliente' | 'Prestador' | null>(null);
-
-  // Tab State - Expandido para incluir admin
-  const [activeTab, setActiveTab] = useState<'Cliente' | 'Prestador' | 'ValidarUsuarios'>('Cliente');
+  
+  // Tab State - Adicionado 'MeusPosts'
+  const [activeTab, setActiveTab] = useState<'Cliente' | 'Prestador' | 'ValidarUsuarios' | 'MeusPosts'>('Cliente');
 
   // Search and Filter States
   const [searchText, setSearchText] = useState('');
@@ -85,10 +85,14 @@ export const Home: React.FC = () => {
   const [pagePrestador, setPagePrestador] = useState(1);
   const [hasMoreCliente, setHasMoreCliente] = useState(true);
   const [hasMorePrestador, setHasMorePrestador] = useState(true);
-
+  
   // --- Admin State ---
   const [verificacoes, setVerificacoes] = useState<VerificacaoAdmin[]>([]);
   const [isLoadingVerificacoes, setIsLoadingVerificacoes] = useState(false);
+
+  // --- Meus Posts State ---
+  const [meusPosts, setMeusPosts] = useState<Post[]>([]);
+  const [isLoadingMeusPosts, setIsLoadingMeusPosts] = useState(false);
 
   // Loading States
   const [isLoading, setIsLoading] = useState(true);
@@ -132,7 +136,7 @@ export const Home: React.FC = () => {
       setHasMorePrestador(resPrestador.page < resPrestador.totalPages);
 
       if (!term) {
-        setFrequentKeywords(extractFrequentKeywords([...resCliente.data, ...resPrestador.data]));
+         setFrequentKeywords(extractFrequentKeywords([...resCliente.data, ...resPrestador.data]));
       }
     } catch (error) {
       console.error('Error fetching initial data:', error);
@@ -148,24 +152,36 @@ export const Home: React.FC = () => {
     setIsLoadingVerificacoes(true);
     try {
       const response = await getEstadoVerificacaoGeral();
-      // Assumindo que a API retorna um array direto ou um objeto { data: ... }
-      const dados = Array.isArray(response) ? response : response;
-
-      // Coloca os "Aguardando" no topo
+      const dados = Array.isArray(response) ? response : response; 
       const ordenado = dados.sort((a: VerificacaoAdmin, b: VerificacaoAdmin) => {
         if (a.situacao === 0 && b.situacao !== 0) return -1;
         if (a.situacao !== 0 && b.situacao === 0) return 1;
         return new Date(b.dataSolicitacao).getTime() - new Date(a.dataSolicitacao).getTime();
       });
-
       setVerificacoes(ordenado);
     } catch (error) {
-      console.error('Erro ao buscar verificações:', error);
       toast.error('Não foi possível carregar as validações.');
     } finally {
       setIsLoadingVerificacoes(false);
     }
   }, []);
+
+  // Fetch dos Meus Posts
+  const fetchMeusPosts = useCallback(async () => {
+    if (!profile?.id) return;
+    setIsLoadingMeusPosts(true);
+    try {
+      // Converte o ID para string para bater com a assinatura do seu serviço
+      if (!user?.id) return;
+      const posts = await getUserPosts(user.id.toString());
+      setMeusPosts(sortPosts(posts));
+    } catch (error) {
+      console.error('Erro ao buscar meus posts:', error);
+      toast.error('Não foi possível carregar seus posts.');
+    } finally {
+      setIsLoadingMeusPosts(false);
+    }
+  }, [profile?.id]);
 
   // UseEffects de Inicialização
   useEffect(() => {
@@ -178,6 +194,13 @@ export const Home: React.FC = () => {
       fetchVerificacoes();
     }
   }, [activeTab, isAdmin, fetchVerificacoes]);
+
+  // Carrega Meus Posts ao trocar para a tab de Meus Posts
+  useEffect(() => {
+    if (activeTab === 'MeusPosts' && profile?.id) {
+      fetchMeusPosts();
+    }
+  }, [activeTab, profile?.id, fetchMeusPosts]);
 
   // Infinite scroll Cliente
   useEffect(() => {
@@ -215,12 +238,12 @@ export const Home: React.FC = () => {
     fetchMorePrestadores();
   }, [pagePrestador, activeSearchTerm, activeTab]);
 
-  // --- Infinite Scroll Observer ---
+  // Infinite Scroll Observer
   const observer = useRef<IntersectionObserver | null>(null);
   const lastPostElementRef = useCallback((node: HTMLDivElement | null) => {
-    if (isLoading || isFetchingMore || activeTab === 'ValidarUsuarios') return;
+    if (isLoading || isFetchingMore || activeTab === 'ValidarUsuarios' || activeTab === 'MeusPosts') return;
     if (observer.current) observer.current.disconnect();
-
+    
     observer.current = new IntersectionObserver(entries => {
       if (entries[0].isIntersecting) {
         if (activeTab === 'Cliente' && hasMoreCliente) setPageCliente(p => p + 1);
@@ -231,7 +254,6 @@ export const Home: React.FC = () => {
     if (node) observer.current.observe(node);
   }, [isLoading, isFetchingMore, activeTab, hasMoreCliente, hasMorePrestador]);
 
-  // Close search dropdown on outside click
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (searchContainerRef.current && !searchContainerRef.current.contains(event.target as Node)) {
@@ -242,18 +264,21 @@ export const Home: React.FC = () => {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  // Fetch initial tags
   useEffect(() => {
     api.get<Tag[]>('/Tag').then(response => setAllTags(response.data)).catch(err => console.error("Error fetching tags:", err));
   }, []);
-
-  // --- UI HANDLERS ---
+  
+  // UI HANDLERS
   const handleSearch = () => {
     const searchTerm = [searchText, ...selectedTags, ...selectedKeywords].join(' ').trim();
     setActiveSearchTerm(searchTerm);
     setIsSearchDropdownOpen(false);
+    // Se fizer uma busca, é bom voltar pro feed normal caso estivesse nos Meus Posts
+    if (activeTab === 'MeusPosts' || activeTab === 'ValidarUsuarios') {
+      setActiveTab('Cliente');
+    }
   };
-
+  
   const clearSearchAndReturnToFeed = () => {
     setSearchText('');
     setSelectedTags([]);
@@ -271,42 +296,80 @@ export const Home: React.FC = () => {
     setIsCreateModalOpen(false);
     setSelectedRoleForPost(null);
     fetchInitialData(activeSearchTerm);
+    if (activeTab === 'MeusPosts') {
+      fetchMeusPosts(); // Atualiza a aba Meus Posts também!
+    }
   };
 
   const toggleTag = (tagName: string) => setSelectedTags(prev => prev.includes(tagName) ? prev.filter(t => t !== tagName) : [...prev, tagName]);
   const toggleKeyword = (keyword: string) => setSelectedKeywords(prev => prev.includes(keyword) ? prev.filter(k => k !== keyword) : [...prev, keyword]);
 
-  // --- ADMIN HANDLERS ---
   const handleAvaliarVerificacao = async (verificacaoId: number, novaSituacao: number) => {
     if (!profile?.id) return;
     try {
       await avaliarVerificacao(verificacaoId, Number(profile.id), novaSituacao);
       toast.success(novaSituacao === 1 ? 'Usuário aprovado!' : 'Usuário rejeitado!');
-
-      // Atualiza o estado localmente para refletir a mudança sem recarregar tudo
-      setVerificacoes(prev => prev.map(v =>
-        v.id === verificacaoId
-          ? {
-            ...v,
-            situacao: novaSituacao,
-            dataAvaliacao: new Date().toISOString(),
-            updatedBy: { id: Number(profile.id), nome: profile.nome || 'Admin' }
-          }
+      setVerificacoes(prev => prev.map(v => 
+        v.id === verificacaoId 
+          ? { 
+              ...v, 
+              situacao: novaSituacao, 
+              dataAvaliacao: new Date().toISOString(), 
+              updatedBy: { id: Number(profile.id), nome: profile.nome || 'Admin' } 
+            } 
           : v
       ));
     } catch (error) {
-      console.error('Erro ao avaliar', error);
       toast.error('Erro ao processar avaliação.');
     }
   };
 
   const visibleTags = showAllTags ? allTags : allTags.slice(0, 5);
-
-  // --- RENDER LOGIC ---
   const currentPosts = activeTab === 'Cliente' ? postsCliente : postsPrestador;
   const hasMore = activeTab === 'Cliente' ? hasMoreCliente : hasMorePrestador;
 
-  // Função para renderizar o bloco do painel Admin
+  // Renderizador da Aba: Meus Posts
+  const renderMeusPostsTab = () => {
+    if (isLoadingMeusPosts) {
+      return (
+        <div className="flex justify-center items-center p-10">
+          <Loader2 className="animate-spin text-brand-orange" size={40} />
+          <p className="ml-4 text-lg text-gray-600">Carregando seus anúncios...</p>
+        </div>
+      );
+    }
+
+    if (meusPosts.length === 0) {
+      return (
+        <div className="text-center p-10 bg-white rounded-xl shadow-sm">
+          <UserCircle size={48} className="mx-auto text-gray-300 mb-4" />
+          <h3 className="text-xl font-medium text-gray-700">Você ainda não tem anúncios</h3>
+          <p className="text-gray-500 mt-2 mb-6">
+            Crie um anúncio oferecendo seus serviços ou pedindo ajuda.
+          </p>
+          <div className="flex justify-center gap-4">
+            <button className="text-brand-orange hover:underline font-medium" onClick={() => handleCreatePostClick('Prestador')}>
+              Oferecer Serviço
+            </button>
+            <span className="text-gray-300">|</span>
+            <button className="text-brand-orange hover:underline font-medium" onClick={() => handleCreatePostClick('Cliente')}>
+              Pedir Ajuda
+            </button>
+          </div>
+        </div>
+      );
+    }
+
+    return (
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {meusPosts.map((post) => (
+          <ServiceCard key={post.id} post={post} onClick={() => setSelectedPost(post)} />
+        ))}
+      </div>
+    );
+  };
+
+  // Renderizador da Aba: Admin
   const renderAdminTab = () => {
     if (isLoadingVerificacoes) {
       return (
@@ -331,34 +394,34 @@ export const Home: React.FC = () => {
           <div key={verificacao.id} className="bg-white rounded-xl shadow-md p-5 border border-gray-100 flex flex-col justify-between">
             <div>
               <div className="flex items-center gap-4 mb-4">
-                <img
-                  src={verificacao.imagemUrl}
-                  alt={verificacao.nomeCadastro}
+                <img 
+                  src={verificacao.imagemUrl} 
+                  alt={verificacao.nomeCadastro} 
                   className="w-16 h-16 rounded-lg object-cover bg-gray-100 cursor-pointer hover:opacity-80 transition"
-                  onClick={() => window.open(verificacao.imagemUrl, '_blank')} // Abre a imagem grande em nova guia
+                  onClick={() => window.open(verificacao.imagemUrl, '_blank')}
                 />
                 <div>
                   <h3 className="font-bold text-gray-800 text-lg">{verificacao.nomeCadastro}</h3>
                   <p className="text-sm text-gray-500">ID: {verificacao.usuarioId}</p>
                 </div>
               </div>
-
+              
               <div className="space-y-2 text-sm text-gray-600 mb-6">
                 <p>
                   <strong>Data da Solicitação:</strong>{' '}
                   {new Date(verificacao.dataSolicitacao).toLocaleDateString('pt-BR')}
                 </p>
                 <div className="flex items-center gap-2">
-                  <strong>Status:</strong>
-                  <span className={`px-2 py-0.5 rounded text-xs font-semibold ${verificacao.situacao === 0 ? 'bg-yellow-100 text-yellow-800' :
-                      verificacao.situacao === 1 ? 'bg-green-100 text-green-800' :
-                        'bg-red-100 text-red-800'
-                    }`}>
+                  <strong>Status:</strong> 
+                  <span className={`px-2 py-0.5 rounded text-xs font-semibold ${
+                    verificacao.situacao === 0 ? 'bg-yellow-100 text-yellow-800' : 
+                    verificacao.situacao === 1 ? 'bg-green-100 text-green-800' : 
+                    'bg-red-100 text-red-800'
+                  }`}>
                     {verificacao.situacao === 0 ? 'Aguardando' : verificacao.situacao === 1 ? 'Aprovado' : 'Rejeitado'}
                   </span>
                 </div>
-
-                {/* Histórico / Auditoria */}
+                
                 {verificacao.updatedBy && (
                   <div className="pt-2 border-t mt-2">
                     <p className="text-xs text-gray-500">
@@ -370,16 +433,15 @@ export const Home: React.FC = () => {
               </div>
             </div>
 
-            {/* Ações (Só exibe se estiver aguardando, ou se quiser permitir reavaliar, retire o if) */}
             {verificacao.situacao === 0 ? (
               <div className="flex gap-3">
-                <button
+                <button 
                   onClick={() => handleAvaliarVerificacao(verificacao.id, 1)}
                   className="flex-1 bg-green-500 hover:bg-green-600 text-white py-2 rounded-lg font-medium flex justify-center items-center gap-2 transition"
                 >
                   <Check size={18} /> Aprovar
                 </button>
-                <button
+                <button 
                   onClick={() => handleAvaliarVerificacao(verificacao.id, 2)}
                   className="flex-1 bg-red-500 hover:bg-red-600 text-white py-2 rounded-lg font-medium flex justify-center items-center gap-2 transition"
                 >
@@ -387,7 +449,7 @@ export const Home: React.FC = () => {
                 </button>
               </div>
             ) : (
-              <button
+              <button 
                 onClick={() => handleAvaliarVerificacao(verificacao.id, 0)}
                 className="w-full bg-gray-100 hover:bg-gray-200 text-gray-700 py-2 rounded-lg font-medium text-sm transition"
               >
@@ -406,6 +468,7 @@ export const Home: React.FC = () => {
 
         {/* --- ADVANCED SEARCH CONTAINER --- */}
         <div className="bg-white shadow-md rounded-xl p-4 mb-6 relative">
+          {/* ... (Seção de busca mantida igual, apenas com a navegação pro activeTab na busca) ... */}
           <div className="flex items-start gap-4">
             {user ? <UserAvatar user={{ nome: user.name, foto: profile?.imagemUrl }} /> : <div className="w-12 h-12 rounded-full bg-gray-300 flex-shrink-0" />}
             <div className="w-full">
@@ -425,7 +488,7 @@ export const Home: React.FC = () => {
                     Buscar
                   </button>
                 </div>
-                {isSearchDropdownOpen && (
+                 {isSearchDropdownOpen && (
                   <div className="absolute z-20 mt-2 w-full max-h-[60vh] overflow-y-auto rounded-xl border bg-white p-4 shadow-xl">
                     <h3 className="text-sm font-semibold text-brand-navy mb-2">Serviços</h3>
                     <div className="flex flex-wrap gap-2 mb-4">
@@ -458,7 +521,7 @@ export const Home: React.FC = () => {
                 )}
               </div>
               {activeSearchTerm && (
-                <div
+                <div 
                   onClick={clearSearchAndReturnToFeed}
                   className="flex items-center gap-1 text-sm font-medium text-gray-500 hover:text-red-500 transition-colors mt-2 px-2 py-1 rounded-md hover:bg-red-50 cursor-pointer"
                 >
@@ -490,16 +553,23 @@ export const Home: React.FC = () => {
             <button onClick={() => setActiveTab('Prestador')} className={`whitespace-nowrap py-3 px-1 border-b-2 font-medium text-sm transition-colors ${activeTab === 'Prestador' ? 'border-brand-orange text-brand-orange' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}>
               Profissionais
             </button>
+            
+            {/* Aba Meus Posts (Visível se logado) */}
+            {profile && (
+              <button onClick={() => setActiveTab('MeusPosts')} className={`whitespace-nowrap py-3 px-1 border-b-2 font-medium text-sm transition-colors ${activeTab === 'MeusPosts' ? 'border-brand-orange text-brand-orange' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}>
+                Meus Anúncios
+              </button>
+            )}
 
             {/* Tab protegida para Admins */}
             {isAdmin && (
-              <button
-                onClick={() => setActiveTab('ValidarUsuarios')}
+              <button 
+                onClick={() => setActiveTab('ValidarUsuarios')} 
                 className={`whitespace-nowrap py-3 px-1 border-b-2 font-medium text-sm transition-colors flex items-center gap-1 ${activeTab === 'ValidarUsuarios' ? 'border-indigo-600 text-indigo-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}
               >
-                Validar Usuários
+                Validar Usuários 
                 {verificacoes.filter(v => v.situacao === 0).length > 0 && activeTab !== 'ValidarUsuarios' && (
-                  <span className="bg-red-500 text-white text-xs rounded-full w-4 h-4 flex items-center justify-center">!</span>
+                   <span className="bg-red-500 text-white text-xs rounded-full w-4 h-4 flex items-center justify-center">!</span>
                 )}
               </button>
             )}
@@ -508,9 +578,11 @@ export const Home: React.FC = () => {
 
         {/* --- CONTENT AREA --- */}
         {activeTab === 'ValidarUsuarios' ? (
-          renderAdminTab()
+           renderAdminTab()
+        ) : activeTab === 'MeusPosts' ? (
+           renderMeusPostsTab()
         ) : (
-          /* FEED DE POSTS (Mantido igual) */
+          /* FEED DE POSTS NORMAL */
           isLoading ? (
             <div className="flex justify-center items-center p-10">
               <Loader2 className="animate-spin text-brand-orange" size={40} />
@@ -549,7 +621,6 @@ export const Home: React.FC = () => {
         )}
       </main>
 
-      {/* Modais mantidos intactos */}
       <ServiceDetailModal post={selectedPost} onClose={() => setSelectedPost(null)} isOpen={!!selectedPost} />
       {isCreateModalOpen && selectedRoleForPost && (
         <CreatePostModal isOpen={isCreateModalOpen} onClose={() => setIsCreateModalOpen(false)} onPostCreated={handlePostCreated} roleSelecionada={selectedRoleForPost} />

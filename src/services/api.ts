@@ -406,8 +406,9 @@ export async function buscarPosts(
 
 export async function getUserPosts(usuarioId: string): Promise<Post[]> {
   try {
-    const { data } = await api.get<Post[]>(`/post/getposts/${usuarioId}`)
-    return data
+    const response = await api.get<Post[]>(`/post/getposts/usuario/${usuarioId}`)
+
+    return response.data
   } catch (error) {
     throw new Error(toErrorMessage(error))
   }
