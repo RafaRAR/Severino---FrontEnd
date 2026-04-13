@@ -102,7 +102,7 @@ export const ChatModal = ({
         setRoomId(idDaSala);
 
         const novaConexao = new signalR.HubConnectionBuilder()
-          .withUrl("http://localhost:5005/chathub")
+          .withUrl("https://severino-backend-lqhl.onrender.com//chathub")
           .withAutomaticReconnect()
           .build();
 
