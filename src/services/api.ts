@@ -2,7 +2,7 @@ import axios, { AxiosError } from 'axios'
 
 const API_BASE_URL = 'https://severino-backend-lqhl.onrender.com/api'
 
-// const API_BASE_URL = 'https://localhost:7023/api'
+// const API_BASE_URL = 'http://localhost:5005/api'
 const TOKEN_STORAGE_KEY = 'severino_token'
 
 export const api = axios.create({
@@ -352,6 +352,7 @@ export interface Post extends PostPayload {
   categoria?: string;
   comentarios?: number;
   tags?: Tag[];
+  status: number;
   cadastro: {
     nome: string;
     cpf: string;
