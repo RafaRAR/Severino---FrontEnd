@@ -25,6 +25,9 @@ export default function ServiceDetailModal({ post, isOpen, onClose }: Props) {
   const isPostOwner = Number(user?.id) === Number(post?.usuarioId);
   const jaFezProposta = comentarios.some((c) => Number(c.usuario.id) === Number(user?.id));
   const postPermiteLances = post?.status === 0;
+  
+  // 🛡️ NOVA REGRA: Verifica se o usuário atual é um Prestador (Ajuste conforme o seu auth salva a role)
+  const isPrestador = (user as any)?.tipoUsuario === 1 || (user as any)?.role === "Prestador" || localStorage.getItem("tipoUsuario") === "1";
 
   useEffect(() => { setCurrentImageIndex(0); }, [post?.id]);
   useEffect(() => {
@@ -89,8 +92,8 @@ export default function ServiceDetailModal({ post, isOpen, onClose }: Props) {
           <div className="mt-8 border-t pt-6">
             <h3 className="font-display text-lg font-bold mb-4">Propostas Recebidas</h3>
             
-            {/* 1️⃣ FORMULÁRIO DE NOVA PROPOSTA (Só aparece se o prestador ainda não propôs e o post está aberto) */}
-            {!isPostOwner && !jaFezProposta && postPermiteLances && (
+            {/* 1️⃣ FORMULÁRIO DE NOVA PROPOSTA (Só aparece se FOR PRESTADOR, ainda não propôs e o post está aberto) */}
+            {!isPostOwner && isPrestador && !jaFezProposta && postPermiteLances && (
               <div className="bg-secondary rounded-xl p-4 mb-6">
                 <textarea className="w-full border rounded-xl px-4 py-3 h-20 resize-none mb-3" placeholder="Como você vai resolver..." value={novoComentario} onChange={(e) => setNovoComentario(e.target.value)} disabled={carregandoComentarios} />
                 <div className="flex gap-3 items-center">
@@ -100,8 +103,8 @@ export default function ServiceDetailModal({ post, isOpen, onClose }: Props) {
               </div>
             )}
 
-            {/* 2️⃣ FEEDBACKS VISUAIS (Avisos de bloqueio para o Prestador) */}
-            {!isPostOwner && (
+            {/* 2️⃣ FEEDBACKS VISUAIS (Avisos de bloqueio SOMENTE para o Prestador) */}
+            {!isPostOwner && isPrestador && (
               <>
                 {/* Se o post foi concluído, expirou ou está em andamento com outro */}
                 {!postPermiteLances && (
@@ -127,10 +130,11 @@ export default function ServiceDetailModal({ post, isOpen, onClose }: Props) {
 
             <div className="space-y-4">
               
-              {/* Mensagem amigável caso o prestador não tenha feito lance ainda */}
+              {/* Mensagem amigável caso o usuário não seja o dono e a lista esteja vazia pra ele */}
               {comentarios.filter(c => isPostOwner || Number(user?.id) === c.usuario.id).length === 0 && !isPostOwner && (
                 <p className="text-sm text-gray-500 text-center py-6 bg-gray-50 rounded-xl border border-dashed">
-                  🔒 Os lances de outros profissionais são confidenciais.<br/>Faça a sua proposta acima!
+                  🔒 Os lances de outros profissionais são confidenciais.<br/>
+                  {isPrestador ? "Faça a sua proposta acima!" : "Somente prestadores de serviço podem enviar propostas."}
                 </p>
               )}
 

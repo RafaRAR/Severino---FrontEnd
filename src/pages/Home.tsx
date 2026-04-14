@@ -59,6 +59,10 @@ const sortPosts = (posts: Post[]): Post[] => {
 export const Home: React.FC = () => {
   const { user, profile, setOpenModal } = useAuth();
 
+  // 🛡️ REGRAS DE ACESSO (Corrigidas para usar o 'profile')
+  const isPrestador = profile?.tipoUsuario === 1 || localStorage.getItem("tipoUsuario") === "1";
+  const isLoggedCliente = user && !isPrestador;
+
   // Modal States
   const [selectedPost, setSelectedPost] = useState<Post | null>(null);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
@@ -286,8 +290,16 @@ export const Home: React.FC = () => {
     setActiveSearchTerm('');
   };
 
+  // 🛡️ FUNÇÃO DE CLIQUE PROTEGIDA
   const handleCreatePostClick = (role: 'Cliente' | 'Prestador') => {
     if (!user) return setOpenModal("login");
+    
+    // Se tentar criar como prestador sendo cliente, bloqueia
+    if (role === 'Prestador' && !isPrestador) {
+      toast.error("Apenas contas de Prestador de Serviço podem criar este tipo de anúncio.");
+      return;
+    }
+
     setSelectedRoleForPost(role);
     setIsCreateModalOpen(true);
   };
@@ -348,7 +360,13 @@ export const Home: React.FC = () => {
             Crie um anúncio oferecendo seus serviços ou pedindo ajuda.
           </p>
           <div className="flex justify-center gap-4">
-            <button className="text-brand-orange hover:underline font-medium" onClick={() => handleCreatePostClick('Prestador')}>
+            {/* 🛡️ BOTÃO OFERECER SERVIÇO PROTEGIDO (TELA VAZIA MEUS POSTS) */}
+            <button 
+              className={`font-medium ${isLoggedCliente ? "text-gray-400 cursor-not-allowed line-through" : "text-brand-orange hover:underline"}`} 
+              onClick={() => !isLoggedCliente && handleCreatePostClick('Prestador')}
+              disabled={!!isLoggedCliente}
+              title={isLoggedCliente ? "Apenas Prestadores podem oferecer serviços" : ""}
+            >
               Oferecer Serviço
             </button>
             <span className="text-gray-300">|</span>
@@ -468,7 +486,6 @@ export const Home: React.FC = () => {
 
         {/* --- ADVANCED SEARCH CONTAINER --- */}
         <div className="bg-white shadow-md rounded-xl p-4 mb-6 relative">
-          {/* ... (Seção de busca mantida igual, apenas com a navegação pro activeTab na busca) ... */}
           <div className="flex items-start gap-4">
             {user ? <UserAvatar user={{ nome: user.name, foto: profile?.imagemUrl }} /> : <div className="w-12 h-12 rounded-full bg-gray-300 flex-shrink-0" />}
             <div className="w-full">
@@ -480,7 +497,7 @@ export const Home: React.FC = () => {
                     onChange={(e) => setSearchText(e.target.value)}
                     onFocus={() => setIsSearchDropdownOpen(true)}
                     onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
-                    placeholder={user ? `O que você precisa hoje, ${profile?.nome.split(' ')[0]}?` : 'Buscar por serviços ou profissionais...'}
+                    placeholder={user ? `O que você precisa hoje, ${profile?.nome.split(' ')[0] || user.name}?` : 'Buscar por serviços ou profissionais...'}
                     className="w-full bg-gray-100 border-2 border-transparent rounded-l-xl p-3 pr-4 text-brand-navy placeholder-gray-500 focus:bg-white focus:border-brand-orange focus:outline-none transition-colors"
                   />
                   <button onClick={handleSearch} className="bg-brand-orange text-white px-6 py-3 h-full rounded-r-xl font-semibold hover:bg-orange-600 transition-colors flex items-center">
@@ -532,13 +549,22 @@ export const Home: React.FC = () => {
             </div>
           </div>
           <div className="border-t border-gray-100 my-4"></div>
+          
+          {/* 🛡️ BOTÕES PRINCIPAIS (COM TRAVA PARA CLIENTE) */}
           <div className="flex justify-around items-center flex-wrap gap-4">
             <button className="flex items-center gap-2 text-gray-600 hover:bg-gray-100 px-4 py-2 rounded-lg transition font-medium" onClick={() => handleCreatePostClick('Cliente')}>
               <Camera size={20} className="text-red-500" />
               <span>Pedir Ajuda</span>
             </button>
-            <button className="flex items-center gap-2 text-gray-600 hover:bg-gray-100 px-4 py-2 rounded-lg transition font-medium" onClick={() => handleCreatePostClick('Prestador')}>
-              <Wrench size={20} className="text-blue-500" />
+            <button 
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg transition font-medium ${
+                isLoggedCliente ? "text-gray-400 bg-gray-50 cursor-not-allowed opacity-60" : "text-gray-600 hover:bg-gray-100"
+              }`} 
+              onClick={() => !isLoggedCliente && handleCreatePostClick('Prestador')}
+              disabled={!!isLoggedCliente}
+              title={isLoggedCliente ? "Apenas Prestadores podem oferecer serviços" : ""}
+            >
+              <Wrench size={20} className={isLoggedCliente ? "text-gray-400" : "text-blue-500"} />
               <span>Oferecer Serviço</span>
             </button>
           </div>
