@@ -23,6 +23,8 @@ export default function ServiceDetailModal({ post, isOpen, onClose }: Props) {
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
 
   const isPostOwner = Number(user?.id) === Number(post?.usuarioId);
+  const jaFezProposta = comentarios.some((c) => Number(c.usuario.id) === Number(user?.id));
+  const postPermiteLances = post?.status === 0;
 
   useEffect(() => { setCurrentImageIndex(0); }, [post?.id]);
   useEffect(() => {
@@ -86,7 +88,9 @@ export default function ServiceDetailModal({ post, isOpen, onClose }: Props) {
         {post.role === "Cliente" && (
           <div className="mt-8 border-t pt-6">
             <h3 className="font-display text-lg font-bold mb-4">Propostas Recebidas</h3>
-            {!isPostOwner && (
+            
+            {/* 1️⃣ FORMULÁRIO DE NOVA PROPOSTA (Só aparece se o prestador ainda não propôs e o post está aberto) */}
+            {!isPostOwner && !jaFezProposta && postPermiteLances && (
               <div className="bg-secondary rounded-xl p-4 mb-6">
                 <textarea className="w-full border rounded-xl px-4 py-3 h-20 resize-none mb-3" placeholder="Como você vai resolver..." value={novoComentario} onChange={(e) => setNovoComentario(e.target.value)} disabled={carregandoComentarios} />
                 <div className="flex gap-3 items-center">
@@ -95,6 +99,32 @@ export default function ServiceDetailModal({ post, isOpen, onClose }: Props) {
                 </div>
               </div>
             )}
+
+            {/* 2️⃣ FEEDBACKS VISUAIS (Avisos de bloqueio para o Prestador) */}
+            {!isPostOwner && (
+              <>
+                {/* Se o post foi concluído, expirou ou está em andamento com outro */}
+                {!postPermiteLances && (
+                  <div className="bg-gray-100 p-4 rounded-xl border border-gray-300 mb-6 text-center">
+                    <p className="text-gray-600 font-medium">
+                      {post.status === 1 ? "✅ Este serviço já foi concluído." : 
+                       post.status === 2 ? "⏰ Este post expirou." : 
+                       "⏳ Este serviço já está em andamento com outro profissional."}
+                    </p>
+                  </div>
+                )}
+                
+                {/* Se o post está aberto, mas ele já enviou uma proposta */}
+                {postPermiteLances && jaFezProposta && (
+                  <div className="bg-blue-50 p-4 rounded-xl border border-blue-200 mb-6 text-center">
+                    <p className="text-blue-700 font-medium">
+                      ✅ Sua proposta já foi enviada. Aguarde o contato do cliente ou abra o chat!
+                    </p>
+                  </div>
+                )}
+              </>
+            )}
+
             <div className="space-y-4">
               
               {/* Mensagem amigável caso o prestador não tenha feito lance ainda */}

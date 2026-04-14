@@ -51,19 +51,21 @@ export const ChatModal = ({
   const [prestadorConcluiu, setPrestadorConcluiu] = useState(false);
   const isAbortandoRef = useRef(false);
   
+  // Mapa para guardar as fotos de perfil (ID do usuário -> URL da foto)
+  const [userImageMap, setUserImageMap] = useState<Record<number, string | null>>({});
+
   // Controla o Banner e o Duplo Clique
   const [statusNegociacao, setStatusNegociacao] = useState("Aberto");
   const enviouOkRef = useRef(false);
 
   const souOCliente = String(usuarioAtualId) === String(donoDoPostId);
+  
 
   useEffect(() => {
     if (isOpen) {
       setLanceAtual(lanceInicial);
       
-      // 3. TRADUTOR DO BACKEND: 0=Aberto, 1=Concluido, 2=Expirado, 3=EmAndamento
       const statusTraduzido = postStatus === 3 ? "Em Andamento" : postStatus === 1 ? "Concluído" : "Aberto";
-      
       setStatusNegociacao(statusTraduzido); 
 
       if (statusTraduzido === "Concluído") {
@@ -80,8 +82,25 @@ export const ChatModal = ({
       isFinalizandoRef.current = false;
       enviouOkRef.current = false;
       isAbortandoRef.current = false;
+
+      // 👇 NOVA LÓGICA: BUSCAR AS FOTOS DO BANCO 👇
+      const buscarFotos = async () => {
+        try {
+          const resDono = await api.get(`/cadastro/getcadastro/${donoDoPostId}`);
+          const resPrestador = await api.get(`/cadastro/getcadastro/${prestadorSelecionadoId}`);
+          
+          setUserImageMap({
+            [Number(donoDoPostId)]: resDono.data.imagemUrl || null,
+            [Number(prestadorSelecionadoId)]: resPrestador.data.imagemUrl || null,
+          });
+        } catch (error) {
+          console.error("Erro ao buscar fotos:", error);
+        }
+      };
+      buscarFotos();
+      // 👆 FIM DA LÓGICA DE FOTOS 👆
     }
-  }, [isOpen, lanceInicial, postStatus]);
+  }, [isOpen, lanceInicial, postStatus, donoDoPostId, prestadorSelecionadoId]); // Atualizei o array de dependências aqui!
 
 // --- CONEXÃO SIGNALR (BLINDADA CONTRA STRICT MODE) ---
   useEffect(() => {
@@ -376,12 +395,52 @@ export const ChatModal = ({
         <div ref={scrollRef} className="flex-1 overflow-y-auto p-4 space-y-4 bg-gray-50 rounded-2xl border">
           {mensagens.map((msg, index) => {
             const isMinha = String(msg.senderId) === String(usuarioAtualId);
+            const primeiroNome = msg.senderNome ? msg.senderNome.split(" ")[0] : "Usuário";
+            const inicial = primeiroNome.charAt(0).toUpperCase();
+            const fotoUrl = userImageMap[msg.senderId];
+
             return (
-              <div key={index} className={`flex ${isMinha ? "justify-end" : "justify-start"}`}>
-                <div className={`max-w-[80%] px-4 py-2 rounded-2xl ${isMinha ? "bg-[#1A237E] text-white" : "bg-gray-200 text-gray-800"}`}>
-                  <p className="text-sm">{msg.conteudo}</p>
-                  <span className={`text-[9px] block mt-1 ${isMinha ? "text-blue-200" : "text-gray-500"}`}>{msg.dataEnvio ? new Date(msg.dataEnvio).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ""}</span>
+              <div key={index} className={`flex ${isMinha ? "justify-end" : "justify-start"} items-end gap-2`}>
+                
+                {/* 📸 FOTO DO OUTRO (Esquerda) */}
+                {!isMinha && (
+                  <div className="flex-shrink-0">
+                    {fotoUrl ? (
+                      <img src={fotoUrl} alt={primeiroNome} className="w-8 h-8 rounded-full object-cover border border-gray-300 shadow-sm" />
+                    ) : (
+                      <div className="w-8 h-8 rounded-full bg-gray-300 flex items-center justify-center text-gray-600 font-bold text-xs shadow-sm">
+                        {inicial}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* 💬 BALÃO DE MENSAGEM */}
+                <div className={`max-w-[75%] px-4 py-2 rounded-2xl ${isMinha ? "bg-[#1A237E] text-white rounded-br-none" : "bg-gray-200 text-gray-800 rounded-bl-none"}`}>
+                  <span className={`text-[10px] font-bold mb-1 block ${isMinha ? "text-blue-300" : "text-gray-500"}`}>
+                    {isMinha ? "Você" : primeiroNome}
+                  </span>
+                  
+                  <p className="text-sm break-words">{msg.conteudo}</p>
+                  
+                  <span className={`text-[9px] block mt-1 text-right ${isMinha ? "text-blue-200" : "text-gray-500"}`}>
+                    {msg.dataEnvio ? new Date(msg.dataEnvio).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ""}
+                  </span>
                 </div>
+
+                {/* 📸 MINHA FOTO (Direita) */}
+                {isMinha && (
+                  <div className="flex-shrink-0">
+                    {fotoUrl ? (
+                      <img src={fotoUrl} alt="Você" className="w-8 h-8 rounded-full object-cover border border-[#1A237E] shadow-sm" />
+                    ) : (
+                      <div className="w-8 h-8 rounded-full bg-blue-200 flex items-center justify-center text-[#1A237E] font-bold text-xs shadow-sm">
+                        {inicial}
+                      </div>
+                    )}
+                  </div>
+                )}
+
               </div>
             );
           })}
