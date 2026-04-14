@@ -10,7 +10,7 @@ import ModalOverlay from "./ModalOverlay";
 interface Props { post: Post | null; isOpen: boolean; onClose: () => void; }
 
 export default function ServiceDetailModal({ post, isOpen, onClose }: Props) {
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [chatPrestadorId, setChatPrestadorId] = useState<number | null>(null);
   const [chatLanceInicial, setChatLanceInicial] = useState<number>(0);
@@ -26,8 +26,8 @@ export default function ServiceDetailModal({ post, isOpen, onClose }: Props) {
   const jaFezProposta = comentarios.some((c) => Number(c.usuario.id) === Number(user?.id));
   const postPermiteLances = post?.status === 0;
   
-  // 🛡️ NOVA REGRA: Verifica se o usuário atual é um Prestador (Ajuste conforme o seu auth salva a role)
-  const isPrestador = (user as any)?.tipoUsuario === 1 || (user as any)?.role === "Prestador" || localStorage.getItem("tipoUsuario") === "1";
+  // 🛡️ REGRAS DE ACESSO (Corrigidas para usar o 'profile')
+  const isPrestador = profile?.tipoUsuario === 1 || localStorage.getItem("tipoUsuario") === "1";
 
   useEffect(() => { setCurrentImageIndex(0); }, [post?.id]);
   useEffect(() => {
