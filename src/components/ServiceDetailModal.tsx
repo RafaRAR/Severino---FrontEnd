@@ -22,14 +22,22 @@ export default function ServiceDetailModal({ post, isOpen, onClose }: Props) {
   const [carregandoComentarios, setCarregandoComentarios] = useState(false);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
 
+  // 🔄 ESTADO DINÂMICO DE STATUS: Mantém a tela sincronizada com o Chat
+  const [statusAtual, setStatusAtual] = useState<number>(0);
+
   const isPostOwner = Number(user?.id) === Number(post?.usuarioId);
   const jaFezProposta = comentarios.some((c) => Number(c.usuario.id) === Number(user?.id));
-  const postPermiteLances = post?.status === 0;
+  const postPermiteLances = statusAtual === 0;
   
-  // 🛡️ REGRAS DE ACESSO (Corrigidas para usar o 'profile')
+  // 🛡️ REGRAS DE ACESSO
   const isPrestador = profile?.tipoUsuario === 1 || localStorage.getItem("tipoUsuario") === "1";
 
-  useEffect(() => { setCurrentImageIndex(0); }, [post?.id]);
+  // Sincroniza o status local quando abre um post novo
+  useEffect(() => { 
+    setCurrentImageIndex(0); 
+    setStatusAtual(post?.status || 0);
+  }, [post?.id, post?.status]);
+
   useEffect(() => {
     if (!post?.id) return;
     const carregar = async () => {
@@ -92,7 +100,6 @@ export default function ServiceDetailModal({ post, isOpen, onClose }: Props) {
           <div className="mt-8 border-t pt-6">
             <h3 className="font-display text-lg font-bold mb-4">Propostas Recebidas</h3>
             
-            {/* 1️⃣ FORMULÁRIO DE NOVA PROPOSTA (Só aparece se FOR PRESTADOR, ainda não propôs e o post está aberto) */}
             {!isPostOwner && isPrestador && !jaFezProposta && postPermiteLances && (
               <div className="bg-secondary rounded-xl p-4 mb-6">
                 <textarea className="w-full border rounded-xl px-4 py-3 h-20 resize-none mb-3" placeholder="Como você vai resolver..." value={novoComentario} onChange={(e) => setNovoComentario(e.target.value)} disabled={carregandoComentarios} />
@@ -103,21 +110,18 @@ export default function ServiceDetailModal({ post, isOpen, onClose }: Props) {
               </div>
             )}
 
-            {/* 2️⃣ FEEDBACKS VISUAIS (Avisos de bloqueio SOMENTE para o Prestador) */}
             {!isPostOwner && isPrestador && (
               <>
-                {/* Se o post foi concluído, expirou ou está em andamento com outro */}
                 {!postPermiteLances && (
                   <div className="bg-gray-100 p-4 rounded-xl border border-gray-300 mb-6 text-center">
                     <p className="text-gray-600 font-medium">
-                      {post.status === 1 ? "✅ Este serviço já foi concluído." : 
-                       post.status === 2 ? "⏰ Este post expirou." : 
+                      {statusAtual === 1 ? "✅ Este serviço já foi concluído." : 
+                       statusAtual === 2 ? "⏰ Este post expirou." : 
                        "⏳ Este serviço já está em andamento com outro profissional."}
                     </p>
                   </div>
                 )}
                 
-                {/* Se o post está aberto, mas ele já enviou uma proposta */}
                 {postPermiteLances && jaFezProposta && (
                   <div className="bg-blue-50 p-4 rounded-xl border border-blue-200 mb-6 text-center">
                     <p className="text-blue-700 font-medium">
@@ -129,8 +133,6 @@ export default function ServiceDetailModal({ post, isOpen, onClose }: Props) {
             )}
 
             <div className="space-y-4">
-              
-              {/* Mensagem amigável caso o usuário não seja o dono e a lista esteja vazia pra ele */}
               {comentarios.filter(c => isPostOwner || Number(user?.id) === c.usuario.id).length === 0 && !isPostOwner && (
                 <p className="text-sm text-gray-500 text-center py-6 bg-gray-50 rounded-xl border border-dashed">
                   🔒 Os lances de outros profissionais são confidenciais.<br/>
@@ -138,7 +140,6 @@ export default function ServiceDetailModal({ post, isOpen, onClose }: Props) {
                 </p>
               )}
 
-              {/* Filtra a lista antes de renderizar: Mostra TUDO se for o dono, ou SÓ OS MEUS se eu for prestador */}
               {comentarios.filter(c => isPostOwner || Number(user?.id) === c.usuario.id).map((c) => {
                 const isCommentOwner = Number(user?.id) === c.usuario.id;
                 return (
@@ -152,23 +153,19 @@ export default function ServiceDetailModal({ post, isOpen, onClose }: Props) {
                     <div className="text-2xl font-bold text-green-600 mb-3">R$ {c.valorDeLance.toFixed(2).replace(".", ",")}</div>
                     {(isPostOwner || isCommentOwner) && (
                       <div className="flex gap-2">
-                        {/* Esconde o Aceitar Proposta se o post não estiver mais "Aberto" (0) */}
-                        {isPostOwner && post.status === 0 && (
+                        {isPostOwner && statusAtual === 0 && (
                           <Button size="sm" onClick={() => alert("Aceito!")}>Aceitar Proposta</Button>
                         )}
                         
-                        {/* Botão de Chat com Lógica de Bloqueio Baseado no Status */}
                         <Button 
-                          variant={post.status === 1 || post.status === 2 || post.status === 3 ? "secondary" : "outline"} 
+                          variant={statusAtual === 1 || statusAtual === 2 || statusAtual === 3 ? "secondary" : "outline"} 
                           size="sm" 
                           onClick={() => abrirChatComPrestador(c.usuario.id, c.valorDeLance, c.id, c.conteudo)}
-                          disabled={post.status === 1 || post.status === 2} // Bloqueia se Concluído (1) ou Expirado (2). Mantém clicável se for Em Andamento (3) ou Aberto (0).
+                          disabled={statusAtual === 1 || statusAtual === 2} 
                         >
-                          {post.status === 1 || post.status === 2 ? (
-                            // Se estiver travado, removemos o ícone e mostramos apenas o texto claro
-                            post.status === 1 ? "✅ Negociação Concluída" : "⏳ Expirado"
+                          {statusAtual === 1 || statusAtual === 2 ? (
+                            statusAtual === 1 ? "✅ Negociação Concluída" : "⏳ Expirado"
                           ) : (
-                            // Se estiver liberado (Aberto ou Em Andamento), exibe o botão normal
                             <>
                               <MessageSquare className="w-4 h-4 mr-2" /> 
                               {isPostOwner ? "Chamar no Chat" : "Abrir Chat"}
@@ -190,8 +187,9 @@ export default function ServiceDetailModal({ post, isOpen, onClose }: Props) {
           tituloPost={post.titulo} usuarioAtualId={user.id} donoDoPostId={post.usuarioId}
           prestadorSelecionadoId={chatPrestadorId} lanceInicial={chatLanceInicial}
           lanceId={chatLanceId} lanceConteudo={chatLanceConteudo} 
-          postStatus={post.status} // <-- MANDE A VERDADE DO BANCO AQUI
+          postStatus={statusAtual} // Usa a variável de sincronização
           onValorAtualizado={atualizarValorNaLista} 
+          onStatusChange={setStatusAtual} // Passa o Walkie-Talkie!
         />
       )}
     </ModalOverlay>
