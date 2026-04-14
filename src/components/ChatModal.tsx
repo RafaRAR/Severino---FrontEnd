@@ -101,8 +101,14 @@ export const ChatModal = ({
         const idDaSala = res.data.id;
         setRoomId(idDaSala);
 
+        // Pega o token que está salvo no navegador (usamos o mesmo nome que está no api.ts)
+        const token = localStorage.getItem('severino_token') || "";
+
         const novaConexao = new signalR.HubConnectionBuilder()
-          .withUrl("http://localhost:5005/chathub")
+          .withUrl("https://severino-backend-lqhl.onrender.com/chathub", {
+             // Isso entrega a carteira de identidade pro backend liberar o chat
+             accessTokenFactory: () => token 
+          })
           .withAutomaticReconnect()
           .build();
 
