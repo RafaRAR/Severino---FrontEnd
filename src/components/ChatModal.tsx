@@ -225,14 +225,24 @@ export const ChatModal = ({
   };
 
   const darO_OK = async () => {
-    if (isFinalizandoRef.current || enviouOkRef.current) return;
+    console.log("🟡 [darO_OK] Botão clicado!");
+    console.log("🟡 [darO_OK] Travas - isFinalizando:", isFinalizandoRef.current, "| enviouOk:", enviouOkRef.current);
+
+    if (isFinalizandoRef.current || enviouOkRef.current) {
+      console.log("🔴 [darO_OK] Ação bloqueada pelas travas de duplo-clique!");
+      return;
+    }
+    
     enviouOkRef.current = true; 
     isFinalizandoRef.current = true;
 
     try {
+      console.log("🟡 [darO_OK] Status da Negociação atual:", statusNegociacao);
+      
       // --- FASE 1: ACEITAR PROPOSTA (Status: Aberto) ---
       if (statusNegociacao === "Aberto") {
         const oOutroJaAceitou = souOCliente ? prestadorAceitou : clienteAceitou;
+        console.log("🟡 [darO_OK] Fase 1. O outro já aceitou?", oOutroJaAceitou);
 
         if (connectionRef.current && roomId) {
           await connectionRef.current.invoke("SendMessage", String(roomId), Number(usuarioAtualId), souOCliente ? "✅ O Cliente aceitou a proposta." : "✅ O Profissional aceitou a proposta.");
@@ -240,6 +250,7 @@ export const ChatModal = ({
         if (souOCliente) setClienteAceitou(true); else setPrestadorAceitou(true);
 
         if (oOutroJaAceitou) {
+          console.log("🟢 [darO_OK] Os dois aceitaram! Chamando API de Aceitar Proposta...");
           await api.put(`/Chat/post/${postId}/aceitarproposta`, { prestadorId: Number(prestadorSelecionadoId) });
           if (connectionRef.current && roomId) {
             await connectionRef.current.invoke("SendMessage", String(roomId), Number(usuarioAtualId), "🚀 Proposta aceita! O status do post agora é: Em Andamento");
@@ -251,6 +262,9 @@ export const ChatModal = ({
       // --- FASE 2: CONCLUIR SERVIÇO (Status: Em Andamento) ---
       else if (statusNegociacao === "Em Andamento") {
         const oOutroJaConcluiu = souOCliente ? prestadorConcluiu : clienteConcluiu;
+        
+        console.log("🟡 [darO_OK] Fase 2. Eu sou o cliente?", souOCliente);
+        console.log("🟡 [darO_OK] O outro já concluiu?", oOutroJaConcluiu);
 
         if (connectionRef.current && roomId) {
           await connectionRef.current.invoke("SendMessage", String(roomId), Number(usuarioAtualId), souOCliente ? "✅ O Cliente concluiu o serviço." : "✅ O Profissional concluiu o serviço.");
@@ -258,18 +272,22 @@ export const ChatModal = ({
         if (souOCliente) setClienteConcluiu(true); else setPrestadorConcluiu(true);
 
         if (oOutroJaConcluiu) {
+          console.log("🟢 [darO_OK] BINGO! Os dois concluíram. Disparando a API final agora!");
           await api.put(`/Chat/post/${postId}/concluir`);
+          console.log("🟢 [darO_OK] API retornou sucesso no banco de dados!");
+          
           if (connectionRef.current && roomId) {
             await connectionRef.current.invoke("SendMessage", String(roomId), Number(usuarioAtualId), "🏁 Serviço concluído! O post foi finalizado com sucesso.");
           }
           alert("🎉 Serviço concluído com sucesso!");
-          onClose(); // Aqui fechamos, missão cumprida!
+          onClose(); 
         } else {
-          isFinalizandoRef.current = false; // Libera, falta o outro
+          console.log("🟠 [darO_OK] Eu fui o primeiro a concluir. Destravando a ref e aguardando o outro...");
+          isFinalizandoRef.current = false; 
         }
       }
     } catch (error: any) { 
-      console.error(error);
+      console.error("🔴 [darO_OK] ERRO FATAL:", error);
       isFinalizandoRef.current = false; enviouOkRef.current = false;
       if (error.response?.status === 400) alert("⚠️ Operação inválida para o status atual do post.");
     }
