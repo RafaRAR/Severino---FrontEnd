@@ -4,7 +4,6 @@ import { MessageSquare, MapPin, BadgeCheck } from 'lucide-react';
 import { formatDate } from '../../utils/date';
 import type { Post as ApiPost } from '../../services/api';
 
-// Extensão do tipo Post (mantido do componente 1)
 interface Post extends ApiPost {
   type?: 'pedidos' | 'profissionais';
 }
@@ -12,10 +11,27 @@ interface Post extends ApiPost {
 interface ServiceCardProps {
   post: Post;
   onClick: () => void;
-  index?: number; // Adicionado para a animação do framer-motion funcionar sem erro no TypeScript
+  index?: number;
 }
 
-// Adaptado para o tamanho reduzido (w-8 h-8) e estilo do componente 2
+// ─── Status do Post ───────────────────────────────────────────────────────────
+const STATUS_MAP: Record<number, { label: string; cls: string }> = {
+  0: { label: 'Aberto',        cls: 'bg-blue-100 text-blue-700' },
+  1: { label: 'Concluído',     cls: 'bg-green-100 text-green-700' },
+  2: { label: 'Expirado',      cls: 'bg-gray-100 text-gray-500' },
+  3: { label: 'Em Andamento',  cls: 'bg-yellow-100 text-yellow-700' },
+};
+
+function StatusBadge({ status }: { status: number }) {
+  const s = STATUS_MAP[status] ?? { label: 'Desconhecido', cls: 'bg-gray-100 text-gray-400' };
+  return (
+    <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${s.cls}`}>
+      {s.label}
+    </span>
+  );
+}
+
+// ─── Avatar ───────────────────────────────────────────────────────────────────
 const UserAvatar = ({ user }: { user: { nomeUsuario: string; autorImagemUrl: string } }) => {
   const initials = user.nomeUsuario
     .split(' ')
@@ -34,31 +50,17 @@ const UserAvatar = ({ user }: { user: { nomeUsuario: string; autorImagemUrl: str
   );
 };
 
+// ─── Card ─────────────────────────────────────────────────────────────────────
 export const ServiceCard: React.FC<ServiceCardProps> = ({ post, onClick, index = 0 }) => {
   const isPedido = post.type === 'pedidos';
-
-  // Obtém a primeira imagem do array (se existir)
-  const capaUrl = post.imagens && post.imagens.length > 0 ? post.imagens[0].url : null;
+  const capaUrl  = post.imagens?.length > 0 ? post.imagens[0].url : null;
 
   const renderBadge = () => {
     if (!post.impulsionar) return null;
-
-    if (post.role === 'Cliente') {
-      return (
-        <span className="inline-block text-xs font-bold px-2 py-0.5 rounded-full mb-2 bg-destructive text-destructive-foreground">
-          URGENTE
-        </span>
-      );
-    }
-
-    if (post.role === 'Prestador') {
-      return (
-        <span className="inline-block text-xs font-bold px-2 py-0.5 rounded-full mb-2 bg-amber-400 text-card">
-          PATROCINADO
-        </span>
-      );
-    }
-
+    if (post.role === 'Cliente')
+      return <span className="inline-block text-xs font-bold px-2 py-0.5 rounded-full mb-2 bg-destructive text-destructive-foreground">URGENTE</span>;
+    if (post.role === 'Prestador')
+      return <span className="inline-block text-xs font-bold px-2 py-0.5 rounded-full mb-2 bg-amber-400 text-card">PATROCINADO</span>;
     return null;
   };
 
@@ -70,25 +72,21 @@ export const ServiceCard: React.FC<ServiceCardProps> = ({ post, onClick, index =
       onClick={onClick}
       className="bg-card rounded-xl shadow-sm hover:shadow-card transition-shadow duration-150 cursor-pointer overflow-hidden flex flex-col"
     >
-      {/* Imagem principal: usa a primeira imagem do array, se disponível */}
+      {/* Imagem de capa */}
       {capaUrl && (
         <div className="aspect-video overflow-hidden">
-          <img
-            src={capaUrl}
-            alt={post.titulo}
-            className="w-full h-full object-cover border-b border-border"
-          />
+          <img src={capaUrl} alt={post.titulo} className="w-full h-full object-cover border-b border-border" />
         </div>
       )}
 
-      {/* Corpo do Card */}
+      {/* Corpo */}
       <div className="p-4 flex flex-col flex-grow items-start">
         <div className="flex items-center gap-2 mb-2">
           <UserAvatar user={{ nomeUsuario: post.cadastro?.nome ?? '', autorImagemUrl: post.cadastro?.imagemUrl ?? '' }} />
           <span className="text-sm font-medium text-foreground">{post.cadastro?.nome}</span>
-          {post.cadastro?.prestadorVerificado  && (
-      <BadgeCheck className="w-4 h-4 text-blue-500 fill-blue-500" />
-    )}
+          {post.cadastro?.prestadorVerificado && (
+            <BadgeCheck className="w-4 h-4 text-blue-500 fill-blue-500" />
+          )}
           <span className="text-xs text-muted-foreground ml-auto">{formatDate(post.dataCriacao)}</span>
         </div>
 
@@ -97,7 +95,6 @@ export const ServiceCard: React.FC<ServiceCardProps> = ({ post, onClick, index =
         <h3 className="font-display font-bold text-foreground mb-1 line-clamp-1">{post.titulo}</h3>
         <p className="text-sm text-muted-foreground line-clamp-3 mb-3">{post.conteudo}</p>
 
-        {/* Categoria original adaptada ao final do texto, caso exista */}
         {post.categoria && (
           <div className="mt-auto">
             <span className="bg-teal-100 text-teal-800 text-xs font-medium px-2.5 py-1 rounded-md">
@@ -107,18 +104,21 @@ export const ServiceCard: React.FC<ServiceCardProps> = ({ post, onClick, index =
         )}
       </div>
 
-      {/* Footer - Mesclando os ícones da UI 2 com a lógica da UI 1 */}
-      <div className="px-4 py-3 border-t border-border flex items-center justify-between">
-        <span className="text-xs text-muted-foreground flex items-center gap-1">
-          <MapPin className="w-3 h-3" />
+      {/* Footer */}
+      <div className="px-4 py-3 border-t border-border flex items-center justify-between gap-2">
+        <span className="text-xs text-muted-foreground flex items-center gap-1 truncate">
+          <MapPin className="w-3 h-3 flex-shrink-0" />
           {post.endereco ? post.endereco.substring(post.endereco.indexOf('-') + 1).trim() : 'Remoto'}
         </span>
 
-        {isPedido && (
-          <span className="text-xs text-muted-foreground flex items-center gap-1">
-            <MessageSquare className="w-3 h-3" /> {post.comentarios || 0}
-          </span>
-        )}
+        <div className="flex items-center gap-2 flex-shrink-0">
+          {isPedido && (
+            <span className="text-xs text-muted-foreground flex items-center gap-1">
+              <MessageSquare className="w-3 h-3" /> {post.comentarios || 0}
+            </span>
+          )}
+          <StatusBadge status={post.status} />
+        </div>
       </div>
     </motion.div>
   );
