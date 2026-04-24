@@ -14,7 +14,7 @@ import {
   register as registerRequest,
 } from '../services/api'
 
-export type ModalType = 'login' | 'cadastro' | 'recuperarSenha' | 'editProfile' | 'verifyEmail'
+export type ModalType = 'login' | 'cadastro' | 'recuperarSenha' | 'editProfile' | 'verifyEmail' | 'chatList'
 
 interface AuthContextValue {
   user: AuthUser | null

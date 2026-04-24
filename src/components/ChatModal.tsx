@@ -1,336 +1,99 @@
 import { useEffect, useState, useRef } from "react";
-import * as signalR from "@microsoft/signalr";
 import { BaseModal } from "./ui/BaseModal";
 import { Button } from "./ui/Button";
 import { Input } from "./ui/Input";
 import { Send, Handshake } from "lucide-react";
-import { api } from "../services/api";
-
-interface Mensagem {
-  senderId: number;
-  senderNome?: string;
-  conteudo: string;
-  dataEnvio: string;
-}
+import { ChatProvider, useChat } from "../contexts/ChatContext";
+import { useUserPhotos } from "../hooks/useUserPhotos";
 
 interface ChatModalProps {
   isOpen: boolean; onClose: () => void; postId: string; tituloPost: string;
   usuarioAtualId: string | number; donoDoPostId: string | number;
   prestadorSelecionadoId: string | number; lanceInicial: number; 
   lanceId: number; lanceConteudo: string; 
-  postStatus: number; // <-- 2. MUDE DE STRING PARA NUMBER
+  postStatus: number; 
   onValorAtualizado: (lanceId: number, novoValor: number) => void;
 }
 
-export const ChatModal = ({ 
+export const ChatModal = (props: ChatModalProps) => {
+  return (
+    <ChatProvider
+      postId={props.postId}
+      usuarioAtualId={props.usuarioAtualId}
+      donoDoPostId={props.donoDoPostId}
+      prestadorSelecionadoId={props.prestadorSelecionadoId}
+      lanceInicial={props.lanceInicial}
+      postStatus={props.postStatus}
+      isOpen={props.isOpen}
+      onClose={props.onClose}
+    >
+      <ChatModalContent {...props} />
+    </ChatProvider>
+  );
+};
+
+const ChatModalContent = ({ 
   isOpen, onClose, postId, tituloPost, usuarioAtualId, donoDoPostId,
-  prestadorSelecionadoId, lanceInicial, lanceId, lanceConteudo, 
-  postStatus, // <-- 2. ADICIONE AQUI TAMBÉM
+  prestadorSelecionadoId, lanceId, lanceConteudo, 
   onValorAtualizado
 }: ChatModalProps) => {
   
-  const [mensagens, setMensagens] = useState<Mensagem[]>([]);
+  const {
+    mensagens,
+    statusNegociacao,
+    clienteAceitou,
+    prestadorAceitou,
+    clienteConcluiu,
+    prestadorConcluiu,
+    lanceAtual,
+    enviandoLance,
+    isAbortando,
+    enviarMensagem,
+    darOKNegociacao,
+    fazerLance,
+    abortarNegociacao
+  } = useChat();
+
+  const { userImageMap } = useUserPhotos(donoDoPostId, prestadorSelecionadoId, isOpen);
+
   const [novoTexto, setNovoTexto] = useState("");
-  const [roomId, setRoomId] = useState<number | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   
-  // REFS PARA CONTROLE TOTAL
-  const connectionRef = useRef<signalR.HubConnection | null>(null);
-  const isConnectingRef = useRef(false); // Impede duplicidade de conexão
-  const isFinalizandoRef = useRef(false); // Impede loop de aceite
-
-  const [lanceAtual, setLanceAtual] = useState<number>(lanceInicial);
   const [modalLanceAberto, setModalLanceAberto] = useState(false);
   const [valorNovoLance, setValorNovoLance] = useState("");
-  const [enviandoLance, setEnviandoLance] = useState(false);
-  const [clienteAceitou, setClienteAceitou] = useState(false);
-  const [prestadorAceitou, setPrestadorAceitou] = useState(false);
-  
-  // NOVOS ESTADOS: Fase 2 (Conclusão) e Aborto
-  const [clienteConcluiu, setClienteConcluiu] = useState(false);
-  const [prestadorConcluiu, setPrestadorConcluiu] = useState(false);
-  const isAbortandoRef = useRef(false);
-  
-  // Mapa para guardar as fotos de perfil (ID do usuário -> URL da foto)
-  const [userImageMap, setUserImageMap] = useState<Record<number, string | null>>({});
-
-  // Controla o Banner e o Duplo Clique
-  const [statusNegociacao, setStatusNegociacao] = useState("Aberto");
-  const enviouOkRef = useRef(false);
 
   const souOCliente = String(usuarioAtualId) === String(donoDoPostId);
-  
-
-  useEffect(() => {
-    if (isOpen) {
-      setLanceAtual(lanceInicial);
-      
-      const statusTraduzido = postStatus === 3 ? "Em Andamento" : postStatus === 1 ? "Concluído" : "Aberto";
-      setStatusNegociacao(statusTraduzido); 
-
-      if (statusTraduzido === "Concluído") {
-        setClienteAceitou(true); setPrestadorAceitou(true);
-        setClienteConcluiu(true); setPrestadorConcluiu(true);
-      } else if (statusTraduzido === "Em Andamento") {
-        setClienteAceitou(true); setPrestadorAceitou(true);
-        setClienteConcluiu(false); setPrestadorConcluiu(false);
-      } else {
-        setClienteAceitou(false); setPrestadorAceitou(false);
-        setClienteConcluiu(false); setPrestadorConcluiu(false);
-      }
-
-      isFinalizandoRef.current = false;
-      enviouOkRef.current = false;
-      isAbortandoRef.current = false;
-
-      // 👇 NOVA LÓGICA: BUSCAR AS FOTOS DO BANCO 👇
-      const buscarFotos = async () => {
-        try {
-          const resDono = await api.get(`/cadastro/getcadastro/${donoDoPostId}`);
-          const resPrestador = await api.get(`/cadastro/getcadastro/${prestadorSelecionadoId}`);
-          
-          setUserImageMap({
-            [Number(donoDoPostId)]: resDono.data.imagemUrl || null,
-            [Number(prestadorSelecionadoId)]: resPrestador.data.imagemUrl || null,
-          });
-        } catch (error) {
-          console.error("Erro ao buscar fotos:", error);
-        }
-      };
-      buscarFotos();
-      // 👆 FIM DA LÓGICA DE FOTOS 👆
-    }
-  }, [isOpen, lanceInicial, postStatus, donoDoPostId, prestadorSelecionadoId]); // Atualizei o array de dependências aqui!
-
-// --- CONEXÃO SIGNALR (BLINDADA CONTRA STRICT MODE) ---
-  useEffect(() => {
-    if (!isOpen) return;
-
-    let isMounted = true; // Variável mágica que sabe se o componente ainda é válido
-
-    const inicializarChat = async () => {
-      if (connectionRef.current) return;
-
-      try {
-        const res = await api.post("/Chat/abrir", { postId: Number(postId), clienteId: Number(donoDoPostId), prestadorId: Number(prestadorSelecionadoId) });
-        
-        // Se o React desmontou a tela enquanto esperávamos a API, aborta!
-        if (!isMounted) return; 
-
-        const idDaSala = res.data.id;
-        setRoomId(idDaSala);
-
-        // Pega o token que está salvo no navegador (usamos o mesmo nome que está no api.ts)
-        const token = localStorage.getItem('severino_token') || "";
-
-        const novaConexao = new signalR.HubConnectionBuilder()
-          .withUrl("https://severino-backend-lqhl.onrender.com/chathub", {
-             // Isso entrega a carteira de identidade pro backend liberar o chat
-             accessTokenFactory: () => token 
-          })
-          .withAutomaticReconnect()
-          .build();
-
-        await novaConexao.start();
-
-        // Se o React desmontou enquanto o SignalR conectava, desliga e foge!
-        if (!isMounted) {
-          novaConexao.stop();
-          return;
-        }
-
-        await novaConexao.invoke("JoinChat", String(idDaSala));
-
-        novaConexao.on("ReceiveMessage", (msg: Mensagem) => {
-          setMensagens((prev) => [...prev, msg]);
-          
-          // FASE 1: NEGOCIAÇÃO
-          if (msg.conteudo.includes("✅ O Cliente aceitou")) setClienteAceitou(true);
-          if (msg.conteudo.includes("✅ O Profissional aceitou")) setPrestadorAceitou(true);
-          if (msg.conteudo.includes("💰 Fiz uma nova proposta")) {
-              setClienteAceitou(false); setPrestadorAceitou(false); setStatusNegociacao("Aberto");
-          }
-          if (msg.conteudo.includes("🚀 Proposta aceita!")) {
-              setStatusNegociacao("Em Andamento");
-              // 🔓 MÁGICA AQUI: Destrava os botões para a Fase 2!
-              isFinalizandoRef.current = false;
-              enviouOkRef.current = false; 
-          }
-
-          // FASE 2: CONCLUSÃO E ABORTO
-          if (msg.conteudo.includes("✅ O Cliente concluiu")) setClienteConcluiu(true);
-          if (msg.conteudo.includes("✅ O Profissional concluiu")) setPrestadorConcluiu(true);
-          if (msg.conteudo.includes("🏁 Serviço concluído!")) {
-              setStatusNegociacao("Concluído");
-              isFinalizandoRef.current = false;
-              enviouOkRef.current = false;
-          }
-          if (msg.conteudo.includes("🛑 A negociação foi abortada")) {
-              setStatusNegociacao("Aberto");
-              setClienteConcluiu(false); setPrestadorConcluiu(false);
-              setClienteAceitou(false); setPrestadorAceitou(false);
-              // 🔓 Destrava os botões caso tenham abortado
-              isFinalizandoRef.current = false; 
-              enviouOkRef.current = false; 
-          }
-        });
-
-        connectionRef.current = novaConexao;
-        const historico = await api.get(`/Chat/history/${idDaSala}`);
-        
-        if (isMounted) {
-          setMensagens(historico.data);
-          // 🧹 APAGAMOS A CHECAGEM DO HISTÓRICO AQUI!
-          // Agora a fonte da verdade é o 'postStatus' que vem lá do banco.
-          // O SignalR (ao vivo) continua mudando a tela se alguém aceitar enquanto você olha.
-        }
-      } catch (error) { 
-        console.error("Erro no Chat:", error);
-      }
-    };
-
-    inicializarChat();
-
-    return () => {
-      isMounted = false; // Avisa qualquer processo pendente para abortar
-      if (connectionRef.current) {
-        connectionRef.current.stop();
-        connectionRef.current = null;
-      }
-    };
-  }, [isOpen]);
 
   useEffect(() => {
     if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
-    const ultimaMsgLance = [...mensagens].reverse().find(m => m.conteudo.includes("💰 Fiz uma nova proposta de R$"));
-    if (ultimaMsgLance) {
-      const partes = ultimaMsgLance.conteudo.split("R$ ");
-      if (partes.length > 1) {
-        const valorNumero = parseFloat(partes[1].replace(',', '.'));
-        if (!isNaN(valorNumero)) setLanceAtual(valorNumero);
-      }
-    }
   }, [mensagens]);
 
-  const fazerLance = async () => {
-    if (!valorNovoLance || enviandoLance) return;
-    setEnviandoLance(true);
-    try {
-      await api.put(`/Post/Comentario/editarcomentario/${lanceId}`, { conteudo: lanceConteudo, valorDeLance: Number(valorNovoLance) });
-      setLanceAtual(Number(valorNovoLance)); setModalLanceAberto(false); setValorNovoLance("");
-      setClienteAceitou(false); setPrestadorAceitou(false);
-      enviouOkRef.current = false; // Destrava o botão para nova rodada
-      setStatusNegociacao("Aberto");
-      onValorAtualizado(lanceId, Number(valorNovoLance));
-      if (connectionRef.current && roomId) {
-        await connectionRef.current.invoke("SendMessage", String(roomId), Number(usuarioAtualId), `💰 Fiz uma nova proposta de R$ ${Number(valorNovoLance).toFixed(2).replace('.', ',')}`);
-      }
-    } catch (error) { alert("Erro ao atualizar proposta."); } finally { setEnviandoLance(false); }
-  };
-
-  const abortar = async () => {
-    if (isAbortandoRef.current) return;
-    isAbortandoRef.current = true;
-    try {
-      await api.put(`/Chat/post/${postId}/abortar`);
-      if (connectionRef.current && roomId) {
-        await connectionRef.current.invoke("SendMessage", String(roomId), Number(usuarioAtualId), "🛑 A negociação foi abortada pelo cliente. O post voltou para a fase de lances.");
-      }
-    } catch(error) {
-      console.error(error); alert("Erro ao abortar.");
-    } finally {
-      isAbortandoRef.current = false;
-    }
-  };
-
-  const darO_OK = async () => {
-    console.log("🟡 [darO_OK] Botão clicado!");
-    console.log("🟡 [darO_OK] Travas - isFinalizando:", isFinalizandoRef.current, "| enviouOk:", enviouOkRef.current);
-
-    if (isFinalizandoRef.current || enviouOkRef.current) {
-      console.log("🔴 [darO_OK] Ação bloqueada pelas travas de duplo-clique!");
-      return;
-    }
-    
-    enviouOkRef.current = true; 
-    isFinalizandoRef.current = true;
-
-    try {
-      console.log("🟡 [darO_OK] Status da Negociação atual:", statusNegociacao);
-      
-      // --- FASE 1: ACEITAR PROPOSTA (Status: Aberto) ---
-      if (statusNegociacao === "Aberto") {
-        const oOutroJaAceitou = souOCliente ? prestadorAceitou : clienteAceitou;
-        console.log("🟡 [darO_OK] Fase 1. O outro já aceitou?", oOutroJaAceitou);
-
-        if (connectionRef.current && roomId) {
-          await connectionRef.current.invoke("SendMessage", String(roomId), Number(usuarioAtualId), souOCliente ? "✅ O Cliente aceitou a proposta." : "✅ O Profissional aceitou a proposta.");
-        }
-        if (souOCliente) setClienteAceitou(true); else setPrestadorAceitou(true);
-
-        if (oOutroJaAceitou) {
-          console.log("🟢 [darO_OK] Os dois aceitaram! Chamando API de Aceitar Proposta...");
-          await api.put(`/Chat/post/${postId}/aceitarproposta`, { prestadorId: Number(prestadorSelecionadoId) });
-          if (connectionRef.current && roomId) {
-            await connectionRef.current.invoke("SendMessage", String(roomId), Number(usuarioAtualId), "🚀 Proposta aceita! O status do post agora é: Em Andamento");
-          }
-        } else {
-          isFinalizandoRef.current = false; // Libera, falta o outro
-        }
-      } 
-      // --- FASE 2: CONCLUIR SERVIÇO (Status: Em Andamento) ---
-      else if (statusNegociacao === "Em Andamento") {
-        const oOutroJaConcluiu = souOCliente ? prestadorConcluiu : clienteConcluiu;
-        
-        console.log("🟡 [darO_OK] Fase 2. Eu sou o cliente?", souOCliente);
-        console.log("🟡 [darO_OK] O outro já concluiu?", oOutroJaConcluiu);
-
-        if (connectionRef.current && roomId) {
-          await connectionRef.current.invoke("SendMessage", String(roomId), Number(usuarioAtualId), souOCliente ? "✅ O Cliente concluiu o serviço." : "✅ O Profissional concluiu o serviço.");
-        }
-        if (souOCliente) setClienteConcluiu(true); else setPrestadorConcluiu(true);
-
-        if (oOutroJaConcluiu) {
-          console.log("🟢 [darO_OK] BINGO! Os dois concluíram. Disparando a API final agora!");
-          await api.put(`/Chat/post/${postId}/concluir`);
-          console.log("🟢 [darO_OK] API retornou sucesso no banco de dados!");
-          
-          if (connectionRef.current && roomId) {
-            await connectionRef.current.invoke("SendMessage", String(roomId), Number(usuarioAtualId), "🏁 Serviço concluído! O post foi finalizado com sucesso.");
-          }
-          alert("🎉 Serviço concluído com sucesso!");
-          onClose(); 
-        } else {
-          console.log("🟠 [darO_OK] Eu fui o primeiro a concluir. Destravando a ref e aguardando o outro...");
-          isFinalizandoRef.current = false; 
-        }
-      }
-    } catch (error: any) { 
-      console.error("🔴 [darO_OK] ERRO FATAL:", error);
-      isFinalizandoRef.current = false; enviouOkRef.current = false;
-      if (error.response?.status === 400) alert("⚠️ Operação inválida para o status atual do post.");
-    }
+  const handleFazerLance = async () => {
+    if (!valorNovoLance) return;
+    await fazerLance(Number(valorNovoLance), lanceConteudo, lanceId, onValorAtualizado);
+    setModalLanceAberto(false);
+    setValorNovoLance("");
   };
 
   const lidarComEnvio = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (connectionRef.current && novoTexto.trim() && roomId) {
-      try { await connectionRef.current.invoke("SendMessage", String(roomId), Number(usuarioAtualId), novoTexto); setNovoTexto(""); } catch (e) {}
+    if (novoTexto.trim()) {
+      await enviarMensagem(novoTexto);
+      setNovoTexto("");
     }
   };
 
-// Lógica de visualização dinâmica dos botões
   const euJaAceitei = (souOCliente && clienteAceitou) || (!souOCliente && prestadorAceitou);
   const euJaConclui = (souOCliente && clienteConcluiu) || (!souOCliente && prestadorConcluiu);
 
   let textoBotaoPrincipal = "Aceitar Valor";
-  let btnPrincipalDesabilitado = euJaAceitei || isFinalizandoRef.current;
+  let btnPrincipalDesabilitado = euJaAceitei;
   let checkCliente = clienteAceitou;
   let checkProfissional = prestadorAceitou;
 
   if (statusNegociacao === "Em Andamento") {
     textoBotaoPrincipal = euJaConclui ? "Aguardando o outro..." : "Concluir Serviço";
-    btnPrincipalDesabilitado = euJaConclui || isFinalizandoRef.current;
+    btnPrincipalDesabilitado = euJaConclui;
     checkCliente = clienteConcluiu;
     checkProfissional = prestadorConcluiu;
   } else if (statusNegociacao === "Concluído") {
@@ -356,44 +119,39 @@ export const ChatModal = ({
           </div>
           <div className="flex gap-2 justify-end items-center">
             
-            {/* NOVO: Botão de Abortar (Apenas Cliente se estiver Em Andamento) */}
             {souOCliente && statusNegociacao === "Em Andamento" && (
-              <Button size="sm" className="bg-red-500 hover:bg-red-600 border-none text-white transition-colors" onClick={abortar} disabled={isAbortandoRef.current}>
+              <Button size="sm" className="bg-red-500 hover:bg-red-600 border-none text-white transition-colors" onClick={abortarNegociacao} disabled={isAbortando}>
                 Abortar
               </Button>
             )}
 
-            {/* Oculta botão de Lance se a negociação já avançou */}
             {statusNegociacao === "Aberto" && (
               <Button variant="outline" size="sm" className="bg-transparent border border-white text-white hover:bg-white hover:text-[#1A237E]" onClick={() => setModalLanceAberto(!modalLanceAberto)}>
                 Fazer Lance
               </Button>
             )}
 
-            {/* Indicadores Dinâmicos de OK */}
             <div className="flex gap-1 mr-2 opacity-90 text-[10px]">
               <span className={checkCliente ? "text-green-400 font-bold" : "text-gray-300"}>{checkCliente ? "✅ Cliente OK" : "⏳ Cliente"}</span>
               <span>|</span>
               <span className={checkProfissional ? "text-green-400 font-bold" : "text-gray-300"}>{checkProfissional ? "✅ Prof. OK" : "⏳ Profissional"}</span>
             </div>
 
-            {/* Botão Principal Dinâmico (Aceitar/Concluir) */}
-            <Button variant={btnPrincipalDesabilitado ? "secondary" : "success"} size="sm" className={btnPrincipalDesabilitado ? "bg-gray-500" : "bg-green-500 gap-2"} onClick={darO_OK} disabled={btnPrincipalDesabilitado}>
+            <Button variant={btnPrincipalDesabilitado ? "secondary" : "success"} size="sm" className={btnPrincipalDesabilitado ? "bg-gray-500" : "bg-green-500 gap-2"} onClick={darOKNegociacao} disabled={btnPrincipalDesabilitado}>
               <Handshake size={18} /> {textoBotaoPrincipal}
             </Button>
           </div>
         </div>
 
-        {/* --- RESTO DO CÓDIGO (LANCES, MENSAGENS E INPUT) --- */}
         {modalLanceAberto && (
           <div className="bg-blue-50 p-3 rounded-xl mb-4 border border-blue-200 flex gap-2 items-center">
             <span className="font-bold text-blue-900">R$</span>
             <Input label="" type="number" value={valorNovoLance} onChange={(e) => setValorNovoLance(e.target.value)} className="bg-white text-black h-8 flex-1" style={{ color: 'black' }} />
-            <Button size="sm" className="bg-[#1A237E]" onClick={fazerLance} disabled={enviandoLance}>Enviar Valor</Button>
+            <Button size="sm" className="bg-[#1A237E]" onClick={handleFazerLance} disabled={enviandoLance}>Enviar Valor</Button>
           </div>
         )}
         <div ref={scrollRef} className="flex-1 overflow-y-auto p-4 space-y-4 bg-gray-50 rounded-2xl border">
-          {mensagens.map((msg, index) => {
+          {mensagens.map((msg: any, index: number) => {
             const isMinha = String(msg.senderId) === String(usuarioAtualId);
             const primeiroNome = msg.senderNome ? msg.senderNome.split(" ")[0] : "Usuário";
             const inicial = primeiroNome.charAt(0).toUpperCase();
@@ -402,7 +160,6 @@ export const ChatModal = ({
             return (
               <div key={index} className={`flex ${isMinha ? "justify-end" : "justify-start"} items-end gap-2`}>
                 
-                {/* 📸 FOTO DO OUTRO (Esquerda) */}
                 {!isMinha && (
                   <div className="flex-shrink-0">
                     {fotoUrl ? (
@@ -415,7 +172,6 @@ export const ChatModal = ({
                   </div>
                 )}
 
-                {/* 💬 BALÃO DE MENSAGEM */}
                 <div className={`max-w-[75%] px-4 py-2 rounded-2xl ${isMinha ? "bg-[#1A237E] text-white rounded-br-none" : "bg-gray-200 text-gray-800 rounded-bl-none"}`}>
                   <span className={`text-[10px] font-bold mb-1 block ${isMinha ? "text-blue-300" : "text-gray-500"}`}>
                     {isMinha ? "Você" : primeiroNome}
@@ -428,7 +184,6 @@ export const ChatModal = ({
                   </span>
                 </div>
 
-                {/* 📸 MINHA FOTO (Direita) */}
                 {isMinha && (
                   <div className="flex-shrink-0">
                     {fotoUrl ? (

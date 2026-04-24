@@ -525,5 +525,24 @@ export const avaliarVerificacao = (verificacaoId: number, adminId: number, situa
     headers: { 'Content-Type': 'multipart/form-data' },
   });
 }
+export interface ChatRoomSummary {
+  salaId: number;
+  postId: number;
+  tituloPost: string;
+  postStatus: number;
+  outroUsuarioId: number;
+  outroUsuarioNome: string;
+  outroUsuarioImagemUrl?: string;
+  ultimaMensagem?: string;
+  ultimaMensagemData?: string;
+  lanceAtual: number;
+  lanceId: number;
+  lanceConteudo: string;
+  donoDoPostId: number;
+  prestadorId: number;
+}
+
+export const getSalasUsuario = (userId: number | string) =>
+  api.get<ChatRoomSummary[]>(`/Chat/salas/usuario/${userId}`);
 
 export { TOKEN_STORAGE_KEY }

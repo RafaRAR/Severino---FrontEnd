@@ -2,6 +2,7 @@ import { Wrench, MessageCircle, LogOut } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../hooks/useAuth";
 import EditProfileModal from "../EditProfileModal";
+import { ChatListModal } from "../ChatListModal";
 import { Button } from "../ui/Button";
 
 export default function Header() {
@@ -12,7 +13,7 @@ export default function Header() {
     <>
       <header className="sticky top-0 z-40 border-b border-border bg-card/80 backdrop-blur-md">
         <div className="max-w-5xl mx-auto px-4 h-16 flex items-center justify-between">
-          
+
           {/* Logo */}
           <button onClick={() => navigate("/")} className="flex items-center gap-2">
             <Wrench className="w-6 h-6 text-primary" />
@@ -23,14 +24,15 @@ export default function Header() {
           <div className="flex items-center gap-3">
             {user ? (
               <>
-                {/* Botão de Mensagens */}
-                {/* <button
-                  onClick={() => navigate("/mensagens")}
+                {/* Botão de Mensagens — abre o ChatListModal */}
+                <button
+                  onClick={() => setOpenModal("chatList")}
                   className="relative p-2 rounded-xl hover:bg-secondary transition-colors"
+                  title="Minhas conversas"
                 >
                   <MessageCircle className="w-5 h-5 text-foreground" />
                   <span className="absolute top-1 right-1 w-3 h-3 rounded-full bg-primary" />
-                </button> */}
+                </button>
 
                 {/* Avatar / Editar Perfil */}
                 <button
@@ -38,13 +40,13 @@ export default function Header() {
                   className="relative transition-transform hover:scale-105"
                 >
                   <img
-                    src={profile?.imagemUrl || "https://via.placeholder.com/150"} // Fallback caso não tenha imagem
+                    src={profile?.imagemUrl || "https://via.placeholder.com/150"}
                     alt={user?.name || "Usuário"}
                     className="w-10 h-10 rounded-full object-cover border border-border"
                   />
                 </button>
 
-                {/* Botão de Logout (Trazido da UI antiga, mas adaptado para o novo estilo) */}
+                {/* Logout */}
                 <button
                   onClick={logout}
                   className="flex items-center justify-center bg-destructive hover:bg-destructive/90 transition-colors rounded-full w-10 h-10 text-destructive-foreground ml-2"
@@ -67,10 +69,19 @@ export default function Header() {
         </div>
       </header>
 
-      {/* Renderização do Modal de Perfil */}
+      {/* Modal de Perfil */}
       {user && (
         <EditProfileModal
           isOpen={openModal === "editProfile"}
+          onClose={() => setOpenModal(null)}
+          userId={user.id}
+        />
+      )}
+
+      {/* Modal de Lista de Conversas */}
+      {user && (
+        <ChatListModal
+          isOpen={openModal === "chatList"}
           onClose={() => setOpenModal(null)}
           userId={user.id}
         />
