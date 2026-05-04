@@ -1,15 +1,15 @@
 import { useState, useEffect } from "react";
 import { MapPin, Phone, Trash2, Edit2, MessageSquare, ChevronLeft, ChevronRight, BadgeCheck, Send } from "lucide-react";
 import { ChatModal } from './ChatModal';
-import { type Post, type Comentario, getComentariosPorPost, criarComentario, deletarComentario } from "../services/api";
+import { type Post, type Comentario, getComentariosPorPost, criarComentario, deletarComentario, deletePost } from "../services/api";
 import { useAuth } from "../hooks/useAuth";
 import { formatDate } from "../utils/date";
 import { Button } from "./ui/Button";
 import ModalOverlay from "./ModalOverlay";
 
-interface Props { post: Post | null; isOpen: boolean; onClose: () => void; }
+interface Props { post: Post | null; isOpen: boolean; onClose: () => void; onPostDeleted?: (postId: number) => void; }
 
-export default function ServiceDetailModal({ post, isOpen, onClose }: Props) {
+export default function ServiceDetailModal({ post, isOpen, onClose, onPostDeleted }: Props) {
   const { user, profile } = useAuth();
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [chatPrestadorId, setChatPrestadorId] = useState<number | null>(null);
@@ -26,9 +26,13 @@ export default function ServiceDetailModal({ post, isOpen, onClose }: Props) {
   const jaFezProposta = comentarios.some((c) => Number(c.usuario.id) === Number(user?.id));
   const postPermiteLances = post?.status === 0;
 
-  // 🛡️ REGRAS DE ACESSO (Corrigidas para usar o 'profile')
-  const isPrestador = profile?.tipoUsuario === 1 || localStorage.getItem("tipoUsuario") === "1" ;
-   const isAdmin = profile?.tipoUsuario === 2
+  const isPrestador = profile?.tipoUsuario === 1 || localStorage.getItem("tipoUsuario") === "1";
+  const isAdmin = profile?.tipoUsuario === 2;
+
+  // ─── Permissões de exclusão ───────────────────────────────────────────────
+  const podeExcluirPost = isAdmin || isPostOwner;
+  const podeExcluirComentario = (comentarioUsuarioId: number) =>
+    isAdmin || isPostOwner || Number(user?.id) === comentarioUsuarioId;
 
   useEffect(() => { setCurrentImageIndex(0); }, [post?.id]);
   useEffect(() => {
@@ -51,6 +55,23 @@ export default function ServiceDetailModal({ post, isOpen, onClose }: Props) {
       setNovoComentario(""); setNovoValorDeLance('');
       const data = await getComentariosPorPost(post.id); setComentarios(data);
     } catch (e) { } finally { setCarregandoComentarios(false); }
+  };
+
+  const handleDeletarPost = async () => {
+    if (!post || !window.confirm("Tem certeza que deseja excluir este post?")) return;
+    try {
+      await deletePost(String(post.id));
+      onPostDeleted?.(post.id);
+      onClose();
+    } catch (e) { alert("Não foi possível excluir o post."); }
+  };
+
+  const handleDeletarComentario = async (comentarioId: number) => {
+    if (!window.confirm("Tem certeza que deseja excluir esta proposta?")) return;
+    try {
+      await deletarComentario(comentarioId);
+      setComentarios((prev) => prev.filter((c) => c.id !== comentarioId));
+    } catch (e) { alert("Não foi possível excluir a proposta."); }
   };
 
   const abrirChatComPrestador = (prestadorId: number, valorLance: number, lanceId: number, conteudo: string) => {
@@ -78,7 +99,21 @@ export default function ServiceDetailModal({ post, isOpen, onClose }: Props) {
                 </>
               ) : <div className="w-full h-full flex items-center justify-center text-gray-400">Sem imagem</div>}
             </div>
-            <h2 className="font-display text-2xl font-bold mt-4">{post.titulo}</h2>
+
+            {/* Título + botão de excluir post */}
+            <div className="flex items-start justify-between gap-3 mt-4">
+              <h2 className="font-display text-2xl font-bold">{post.titulo}</h2>
+              {podeExcluirPost && (
+                <button
+                  onClick={handleDeletarPost}
+                  className="flex-shrink-0 p-2 rounded-lg text-red-500 hover:bg-red-50 transition-colors"
+                  title="Excluir post"
+                >
+                  <Trash2 size={18} />
+                </button>
+              )}
+            </div>
+
             <p className="text-sm mt-2 whitespace-pre-wrap">{post.conteudo}</p>
           </div>
           <div className="space-y-4">
@@ -93,7 +128,6 @@ export default function ServiceDetailModal({ post, isOpen, onClose }: Props) {
           <div className="mt-8 border-t pt-6">
             <h3 className="font-display text-lg font-bold mb-4">Propostas Recebidas</h3>
 
-            {/* 1️⃣ FORMULÁRIO DE NOVA PROPOSTA (Só aparece se FOR PRESTADOR, ainda não propôs e o post está aberto) */}
             {!isPostOwner && isPrestador && !jaFezProposta && postPermiteLances && (
               <div className="bg-secondary rounded-xl p-4 mb-6">
                 <textarea className="w-full border rounded-xl px-4 py-3 h-20 resize-none mb-3" placeholder="Como você vai resolver..." value={novoComentario} onChange={(e) => setNovoComentario(e.target.value)} disabled={carregandoComentarios} />
@@ -104,10 +138,8 @@ export default function ServiceDetailModal({ post, isOpen, onClose }: Props) {
               </div>
             )}
 
-            {/* 2️⃣ FEEDBACKS VISUAIS (Avisos de bloqueio SOMENTE para o Prestador) */}
             {!isPostOwner && isPrestador && isAdmin && (
               <>
-                {/* Se o post foi concluído, expirou ou está em andamento com outro */}
                 {!postPermiteLances && (
                   <div className="bg-gray-100 p-4 rounded-xl border border-gray-300 mb-6 text-center">
                     <p className="text-gray-600 font-medium">
@@ -117,8 +149,6 @@ export default function ServiceDetailModal({ post, isOpen, onClose }: Props) {
                     </p>
                   </div>
                 )}
-
-                {/* Se o post está aberto, mas ele já enviou uma proposta */}
                 {postPermiteLances && jaFezProposta && (
                   <div className="bg-blue-50 p-4 rounded-xl border border-blue-200 mb-6 text-center">
                     <p className="text-blue-700 font-medium">
@@ -130,8 +160,6 @@ export default function ServiceDetailModal({ post, isOpen, onClose }: Props) {
             )}
 
             <div className="space-y-4">
-
-              {/* Mensagem amigável caso o usuário não seja o dono e a lista esteja vazia pra ele */}
               {comentarios.filter(c => isPostOwner || Number(user?.id) === c.usuario.id).length === 0 && !isPostOwner && !isAdmin && (
                 <p className="text-sm text-gray-500 text-center py-6 bg-gray-50 rounded-xl border border-dashed">
                   🔒 Os lances de outros profissionais são confidenciais.<br />
@@ -139,7 +167,6 @@ export default function ServiceDetailModal({ post, isOpen, onClose }: Props) {
                 </p>
               )}
 
-              {/* Filtra a lista antes de renderizar: Mostra TUDO se for o dono, ou SÓ OS MEUS se eu for prestador */}
               {comentarios.filter(c => isPostOwner || isAdmin || Number(user?.id) === c.usuario.id).map((c) => {
                 const isCommentOwner = Number(user?.id) === c.usuario.id;
                 return (
@@ -147,33 +174,35 @@ export default function ServiceDetailModal({ post, isOpen, onClose }: Props) {
                     <div className="flex items-center gap-3 mb-3">
                       <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center font-bold">{c.usuario.nome.charAt(0).toUpperCase()}</div>
                       <span className="text-sm font-bold">{c.usuario.nome}</span>
-                      {isCommentOwner && <div className="flex gap-2 ml-auto"><button onClick={() => { }}><Edit2 size={14} /></button><button onClick={() => deletarComentario(c.id)} className="text-red-500"><Trash2 size={14} /></button></div>}
+                      {/* Botões de ação do comentário: edit só para o dono, delete para quem tiver permissão */}
+                      <div className="flex gap-2 ml-auto">
+                        {isCommentOwner && (
+                          <button onClick={() => {}}><Edit2 size={14} /></button>
+                        )}
+                        {podeExcluirComentario(c.usuario.id) && (
+                          <button onClick={() => handleDeletarComentario(c.id)} className="text-red-500 hover:text-red-700 transition-colors">
+                            <Trash2 size={14} />
+                          </button>
+                        )}
+                      </div>
                     </div>
                     <p className="text-sm mb-3">{c.conteudo}</p>
                     <div className="text-2xl font-bold text-green-600 mb-3">R$ {c.valorDeLance.toFixed(2).replace(".", ",")}</div>
                     {(isPostOwner || isCommentOwner) && (
                       <div className="flex gap-2">
-                        {/* Esconde o Aceitar Proposta se o post não estiver mais "Aberto" (0) */}
                         {isPostOwner && post.status === 0 && (
                           <Button size="sm" onClick={() => alert("Aceito!")}>Aceitar Proposta</Button>
                         )}
-
-                        {/* Botão de Chat com Lógica de Bloqueio Baseado no Status */}
                         <Button
                           variant={post.status === 1 || post.status === 2 || post.status === 3 ? "secondary" : "outline"}
                           size="sm"
                           onClick={() => abrirChatComPrestador(c.usuario.id, c.valorDeLance, c.id, c.conteudo)}
-                          disabled={post.status === 1 || post.status === 2} // Bloqueia se Concluído (1) ou Expirado (2). Mantém clicável se for Em Andamento (3) ou Aberto (0).
+                          disabled={post.status === 1 || post.status === 2}
                         >
                           {post.status === 1 || post.status === 2 ? (
-                            // Se estiver travado, removemos o ícone e mostramos apenas o texto claro
                             post.status === 1 ? "✅ Negociação Concluída" : "⏳ Expirado"
                           ) : (
-                            // Se estiver liberado (Aberto ou Em Andamento), exibe o botão normal
-                            <>
-                              <MessageSquare className="w-4 h-4 mr-2" />
-                              {isPostOwner ? "Chamar no Chat" : "Abrir Chat"}
-                            </>
+                            <><MessageSquare className="w-4 h-4 mr-2" />{isPostOwner ? "Chamar no Chat" : "Abrir Chat"}</>
                           )}
                         </Button>
                       </div>
@@ -191,7 +220,7 @@ export default function ServiceDetailModal({ post, isOpen, onClose }: Props) {
           tituloPost={post.titulo} usuarioAtualId={user.id} donoDoPostId={post.usuarioId}
           prestadorSelecionadoId={chatPrestadorId} lanceInicial={chatLanceInicial}
           lanceId={chatLanceId} lanceConteudo={chatLanceConteudo}
-          postStatus={post.status} // <-- MANDE A VERDADE DO BANCO AQUI
+          postStatus={post.status}
           onValorAtualizado={atualizarValorNaLista}
         />
       )}
