@@ -117,7 +117,7 @@ export const ServiceCard: React.FC<ServiceCardProps> = ({ post, onClick, index =
               <MessageSquare className="w-3 h-3" /> {post.comentarios || 0}
             </span>
           )}
-          <StatusBadge status={post.status} />
+          { post.role === 'Cliente' && (<StatusBadge status={post.status} />)}
         </div>
       </div>
     </motion.div>
