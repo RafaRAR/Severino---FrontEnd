@@ -540,6 +540,8 @@ export interface ChatRoomSummary {
   lanceConteudo: string;
   donoDoPostId: number;
   prestadorId: number;
+  clienteConfirmou: boolean;
+  prestadorConfirmou: boolean;
 }
 
 export const getSalasUsuario = (userId: number | string) =>

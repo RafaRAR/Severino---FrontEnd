@@ -21,7 +21,12 @@ export interface ChatRoomSummary {
     prestadorId: number;
     nomePrestador: string;
     dataCriacao: string;
+    clienteConfirmou: boolean;
+    prestadorConfirmou: boolean;
     ultimaMensagem: UltimaMensagem | null;
+    lanceAtual: number;
+    lanceId: number;
+    lanceConteudo: string;
 }
 
 // ─── Dados extras carregados ao abrir o chat ──────────────────────────────────
@@ -113,14 +118,12 @@ export function ChatListModal({ isOpen, onClose, userId }: ChatListModalProps) {
             const comentarios = await getComentariosPorPost(sala.postId);
 
             // Procura o comentário/lance do prestador daquela sala específica
-            const comentarioDoPrestador = comentarios.find(
-                (c) => String(c.usuario?.id) === String(sala.prestadorId)
-            );
+            const comentarioDoPrestador = sala.lanceAtual
 
             setDadosChat({
-                lanceAtual: lanceMap[sala.id] ?? comentarioDoPrestador?.valorDeLance ?? 0,
-                lanceId: comentarioDoPrestador?.id ?? 0,
-                lanceConteudo: comentarioDoPrestador?.conteudo ?? "",
+                lanceAtual: lanceMap[sala.id] ?? comentarioDoPrestador ?? 0,
+                lanceId: sala.lanceId ?? 0,
+                lanceConteudo: sala.lanceConteudo ?? "",
             });
 
             setChatAberto(true);
@@ -253,10 +256,12 @@ export function ChatListModal({ isOpen, onClose, userId }: ChatListModalProps) {
                     usuarioAtualId={userId}
                     donoDoPostId={salaSelecionada.clienteId}
                     prestadorSelecionadoId={salaSelecionada.prestadorId}
-                    lanceInicial={dadosChat.lanceAtual}
-                    lanceId={dadosChat.lanceId}
-                    lanceConteudo={dadosChat.lanceConteudo}
+                    lanceInicial={salaSelecionada.lanceAtual}
+                    lanceId={salaSelecionada.lanceId}
+                    lanceConteudo={salaSelecionada.lanceConteudo}
                     postStatus={salaSelecionada.statusPost}
+                    clienteConfirmou={salaSelecionada.clienteConfirmou}
+                    prestadorConfirmou={salaSelecionada.prestadorConfirmou}
                     onValorAtualizado={handleValorAtualizado}
                 />
             )}

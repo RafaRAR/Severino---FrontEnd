@@ -9,9 +9,10 @@ import { useUserPhotos } from "../hooks/useUserPhotos";
 interface ChatModalProps {
   isOpen: boolean; onClose: () => void; postId: string; tituloPost: string;
   usuarioAtualId: string | number; donoDoPostId: string | number;
-  prestadorSelecionadoId: string | number; lanceInicial: number; 
-  lanceId: number; lanceConteudo: string; 
-  postStatus: number; 
+  prestadorSelecionadoId: string | number; lanceInicial: number;
+  lanceId: number; lanceConteudo: string;
+  clienteConfirmou?: boolean; prestadorConfirmou?: boolean;
+  postStatus: number;
   onValorAtualizado: (lanceId: number, novoValor: number) => void;
 }
 
@@ -26,18 +27,20 @@ export const ChatModal = (props: ChatModalProps) => {
       postStatus={props.postStatus}
       isOpen={props.isOpen}
       onClose={props.onClose}
+      clienteConfirmou={props.clienteConfirmou}
+      prestadorConfirmou={props.prestadorConfirmou}
     >
       <ChatModalContent {...props} />
     </ChatProvider>
   );
 };
 
-const ChatModalContent = ({ 
+const ChatModalContent = ({
   isOpen, onClose, postId, tituloPost, usuarioAtualId, donoDoPostId,
-  prestadorSelecionadoId, lanceId, lanceConteudo, 
+  prestadorSelecionadoId, lanceId, lanceConteudo,
   onValorAtualizado
 }: ChatModalProps) => {
-  
+
   const {
     mensagens,
     statusNegociacao,
@@ -58,7 +61,7 @@ const ChatModalContent = ({
 
   const [novoTexto, setNovoTexto] = useState("");
   const scrollRef = useRef<HTMLDivElement>(null);
-  
+
   const [modalLanceAberto, setModalLanceAberto] = useState(false);
   const [valorNovoLance, setValorNovoLance] = useState("");
 
@@ -99,6 +102,8 @@ const ChatModalContent = ({
   } else if (statusNegociacao === "Concluído") {
     textoBotaoPrincipal = "Serviço Finalizado";
     btnPrincipalDesabilitado = true;
+    checkCliente = true;
+    checkProfissional = true;
   }
 
   return (
@@ -118,7 +123,7 @@ const ChatModalContent = ({
             </div>
           </div>
           <div className="flex gap-2 justify-end items-center">
-            
+
             {souOCliente && statusNegociacao === "Em Andamento" && (
               <Button size="sm" className="bg-red-500 hover:bg-red-600 border-none text-white transition-colors" onClick={abortarNegociacao} disabled={isAbortando}>
                 Abortar
@@ -137,7 +142,7 @@ const ChatModalContent = ({
               <span className={checkProfissional ? "text-green-400 font-bold" : "text-gray-300"}>{checkProfissional ? "✅ Prof. OK" : "⏳ Profissional"}</span>
             </div>
 
-            <Button variant={btnPrincipalDesabilitado ? "secondary" : "success"} size="sm" className={btnPrincipalDesabilitado ? "bg-gray-500" : "bg-green-500 gap-2"} onClick={darOKNegociacao} disabled={btnPrincipalDesabilitado}>
+            <Button variant={btnPrincipalDesabilitado ? "secondary" : "success"} size="sm" className={btnPrincipalDesabilitado ? "bg-gray-500" : "bg-green-500 gap-2"} onClick={darOKNegociacao} disabled={btnPrincipalDesabilitado ?? false}>
               <Handshake size={18} /> {textoBotaoPrincipal}
             </Button>
           </div>
@@ -159,7 +164,7 @@ const ChatModalContent = ({
 
             return (
               <div key={index} className={`flex ${isMinha ? "justify-end" : "justify-start"} items-end gap-2`}>
-                
+
                 {!isMinha && (
                   <div className="flex-shrink-0">
                     {fotoUrl ? (
@@ -176,9 +181,9 @@ const ChatModalContent = ({
                   <span className={`text-[10px] font-bold mb-1 block ${isMinha ? "text-blue-300" : "text-gray-500"}`}>
                     {isMinha ? "Você" : primeiroNome}
                   </span>
-                  
+
                   <p className="text-sm break-words">{msg.conteudo}</p>
-                  
+
                   <span className={`text-[9px] block mt-1 text-right ${isMinha ? "text-blue-200" : "text-gray-500"}`}>
                     {msg.dataEnvio ? new Date(msg.dataEnvio).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ""}
                   </span>

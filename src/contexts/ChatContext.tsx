@@ -12,10 +12,10 @@ interface Mensagem {
 interface ChatContextData {
   mensagens: Mensagem[];
   statusNegociacao: string;
-  clienteAceitou: boolean;
-  prestadorAceitou: boolean;
-  clienteConcluiu: boolean;
-  prestadorConcluiu: boolean;
+  clienteAceitou: boolean | null;
+  prestadorAceitou: boolean | null;
+  clienteConcluiu: boolean | null;
+  prestadorConcluiu: boolean | null;
   lanceAtual: number;
   enviandoLance: boolean;
   isAbortando: boolean;
@@ -37,6 +37,8 @@ interface ChatProviderProps {
   prestadorSelecionadoId: string | number;
   lanceInicial: number;
   postStatus: number;
+  clienteConfirmou?: boolean | null;
+  prestadorConfirmou?: boolean | null;
   isOpen: boolean;
   onClose: () => void;
 }
@@ -50,11 +52,13 @@ export const ChatProvider: React.FC<ChatProviderProps> = ({
   lanceInicial,
   postStatus,
   isOpen,
+  clienteConfirmou,
+  prestadorConfirmou,
   onClose
 }) => {
   const [mensagens, setMensagens] = useState<Mensagem[]>([]);
   const [roomId, setRoomId] = useState<number | null>(null);
-  
+
   const connectionRef = useRef<signalR.HubConnection | null>(null);
   const isFinalizandoRef = useRef(false);
   const enviouOkRef = useRef(false);
@@ -63,11 +67,11 @@ export const ChatProvider: React.FC<ChatProviderProps> = ({
   const [lanceAtual, setLanceAtual] = useState<number>(lanceInicial);
   const [enviandoLance, setEnviandoLance] = useState(false);
   const [isAbortando, setIsAbortando] = useState(false);
-  
-  const [clienteAceitou, setClienteAceitou] = useState(false);
-  const [prestadorAceitou, setPrestadorAceitou] = useState(false);
-  const [clienteConcluiu, setClienteConcluiu] = useState(false);
-  const [prestadorConcluiu, setPrestadorConcluiu] = useState(false);
+
+  const [clienteAceitou, setClienteAceitou] = useState<boolean | null>(false);
+  const [prestadorAceitou, setPrestadorAceitou] = useState<boolean | null>(false);
+  const [clienteConcluiu, setClienteConcluiu] = useState<boolean | null>(false);
+  const [prestadorConcluiu, setPrestadorConcluiu] = useState<boolean | null>(false);
   const [statusNegociacao, setStatusNegociacao] = useState("Aberto");
 
   const souOCliente = String(usuarioAtualId) === String(donoDoPostId);
@@ -78,15 +82,15 @@ export const ChatProvider: React.FC<ChatProviderProps> = ({
       const statusTraduzido = postStatus === 3 ? "Em Andamento" : postStatus === 1 ? "Concluído" : "Aberto";
       setStatusNegociacao(statusTraduzido);
 
-      if (statusTraduzido === "Concluído") {
-        setClienteAceitou(true); setPrestadorAceitou(true);
-        setClienteConcluiu(true); setPrestadorConcluiu(true);
+      if (statusTraduzido === "Aberto") {
+        setClienteAceitou(clienteConfirmou ?? null); setPrestadorAceitou(prestadorConfirmou ?? null);
+        setClienteConcluiu(false); setPrestadorConcluiu(false);
       } else if (statusTraduzido === "Em Andamento") {
         setClienteAceitou(true); setPrestadorAceitou(true);
-        setClienteConcluiu(false); setPrestadorConcluiu(false);
+        setClienteConcluiu(clienteConfirmou ?? null); setPrestadorConcluiu(prestadorConfirmou ?? null);
       } else {
-        setClienteAceitou(false); setPrestadorAceitou(false);
-        setClienteConcluiu(false); setPrestadorConcluiu(false);
+        setClienteAceitou(true); setPrestadorAceitou(true);
+        setClienteConcluiu(true); setPrestadorConcluiu(true);
       }
 
       isFinalizandoRef.current = false;
@@ -94,13 +98,18 @@ export const ChatProvider: React.FC<ChatProviderProps> = ({
       isAbortandoRef.current = false;
       setIsAbortando(false);
     }
-  }, [isOpen, lanceInicial, postStatus]);
+  }, [isOpen, lanceInicial, postStatus, clienteConfirmou, prestadorConfirmou]);
 
   const conectarChat = async () => {
     if (connectionRef.current) return;
 
     try {
-      const res = await api.post("/Chat/abrir", { postId: Number(postId), clienteId: Number(donoDoPostId), prestadorId: Number(prestadorSelecionadoId) });
+      const res = await api.post("/Chat/abrir", {
+        postId: Number(postId),
+        clienteId: Number(donoDoPostId),
+        prestadorId: Number(prestadorSelecionadoId)
+      });
+
       const idDaSala = res.data.id;
       setRoomId(idDaSala);
 
@@ -108,7 +117,7 @@ export const ChatProvider: React.FC<ChatProviderProps> = ({
 
       const novaConexao = new signalR.HubConnectionBuilder()
         .withUrl("https://severino-backend-lqhl.onrender.com/chathub", {
-           accessTokenFactory: () => token 
+          accessTokenFactory: () => token
         })
         .withAutomaticReconnect()
         .build();
@@ -116,39 +125,43 @@ export const ChatProvider: React.FC<ChatProviderProps> = ({
       await novaConexao.start();
       await novaConexao.invoke("JoinChat", String(idDaSala));
 
+      novaConexao.on("StatusNegociacaoAtualizado", (data: any) => {
+        const novoStatus = data.postStatus === "EmAndamento" ? "Em Andamento" : data.postStatus === "Concluido" ? "Concluído" : "Aberto";
+        setStatusNegociacao(novoStatus);
+
+        if (novoStatus === "Aberto") {
+          setClienteAceitou(data.clienteConfirmou); setPrestadorAceitou(data.prestadorConfirmou);
+        } else if (novoStatus === "Em Andamento") {
+          setClienteAceitou(true); setPrestadorAceitou(true);
+          setClienteConcluiu(data.clienteConfirmou); setPrestadorConcluiu(data.prestadorConfirmou);
+        } else {
+          setClienteConcluiu(true); setPrestadorConcluiu(true);
+        }
+      });
+
       novaConexao.on("ReceiveMessage", (msg: Mensagem) => {
         setMensagens((prev) => [...prev, msg]);
-        
-        if (msg.conteudo.includes("✅ O Cliente aceitou")) setClienteAceitou(true);
-        if (msg.conteudo.includes("✅ O Profissional aceitou")) setPrestadorAceitou(true);
+
         if (msg.conteudo.includes("💰 Fiz uma nova proposta")) {
-            setClienteAceitou(false); setPrestadorAceitou(false); setStatusNegociacao("Aberto");
-            
-            const partes = msg.conteudo.split("R$ ");
-            if (partes.length > 1) {
-              const valorNumero = parseFloat(partes[1].replace(',', '.'));
-              if (!isNaN(valorNumero)) setLanceAtual(valorNumero);
-            }
-        }
-        if (msg.conteudo.includes("🚀 Proposta aceita!")) {
-            setStatusNegociacao("Em Andamento");
-            isFinalizandoRef.current = false;
-            enviouOkRef.current = false; 
+          setClienteAceitou(false);
+          setPrestadorAceitou(false);
+          setStatusNegociacao("Aberto");
+
+          const partes = msg.conteudo.split("R$ ");
+          if (partes.length > 1) {
+            const valorNumero = parseFloat(partes[1].replace(',', '.'));
+            if (!isNaN(valorNumero)) setLanceAtual(valorNumero);
+          }
         }
 
-        if (msg.conteudo.includes("✅ O Cliente concluiu")) setClienteConcluiu(true);
-        if (msg.conteudo.includes("✅ O Profissional concluiu")) setPrestadorConcluiu(true);
-        if (msg.conteudo.includes("🏁 Serviço concluído!")) {
-            setStatusNegociacao("Concluído");
-            isFinalizandoRef.current = false;
-            enviouOkRef.current = false;
-        }
         if (msg.conteudo.includes("🛑 A negociação foi abortada")) {
-            setStatusNegociacao("Aberto");
-            setClienteConcluiu(false); setPrestadorConcluiu(false);
-            setClienteAceitou(false); setPrestadorAceitou(false);
-            isFinalizandoRef.current = false; 
-            enviouOkRef.current = false; 
+          setStatusNegociacao("Aberto");
+          setClienteConcluiu(false);
+          setPrestadorConcluiu(false);
+          setClienteAceitou(false);
+          setPrestadorAceitou(false);
+          isFinalizandoRef.current = false;
+          enviouOkRef.current = false;
         }
       });
 
@@ -164,7 +177,7 @@ export const ChatProvider: React.FC<ChatProviderProps> = ({
           if (!isNaN(valorNumero)) setLanceAtual(valorNumero);
         }
       }
-    } catch (error) { 
+    } catch (error) {
       console.error("Erro no Chat:", error);
     }
   };
@@ -200,9 +213,9 @@ export const ChatProvider: React.FC<ChatProviderProps> = ({
     setEnviandoLance(true);
     try {
       await api.put(`/Post/Comentario/editarcomentario/${lanceId}`, { conteudo: lanceConteudo, valorDeLance: valor });
-      setLanceAtual(valor); 
+      setLanceAtual(valor);
       setClienteAceitou(false); setPrestadorAceitou(false);
-      enviouOkRef.current = false; 
+      enviouOkRef.current = false;
       setStatusNegociacao("Aberto");
       onValorAtualizado(lanceId, valor);
       if (connectionRef.current && roomId) {
@@ -210,8 +223,8 @@ export const ChatProvider: React.FC<ChatProviderProps> = ({
       }
     } catch (error) {
       alert("Erro ao atualizar proposta.");
-    } finally { 
-      setEnviandoLance(false); 
+    } finally {
+      setEnviandoLance(false);
     }
   };
 
@@ -224,7 +237,7 @@ export const ChatProvider: React.FC<ChatProviderProps> = ({
       if (connectionRef.current && roomId) {
         await connectionRef.current.invoke("SendMessage", String(roomId), Number(usuarioAtualId), "🛑 A negociação foi abortada pelo cliente. O post voltou para a fase de lances.");
       }
-    } catch(error) {
+    } catch (error) {
       console.error(error); alert("Erro ao abortar.");
     } finally {
       isAbortandoRef.current = false;
@@ -234,52 +247,26 @@ export const ChatProvider: React.FC<ChatProviderProps> = ({
 
   const darOKNegociacao = async () => {
     if (isFinalizandoRef.current || enviouOkRef.current) return;
-    
-    enviouOkRef.current = true; 
+
+    enviouOkRef.current = true;
     isFinalizandoRef.current = true;
 
     try {
-      if (statusNegociacao === "Aberto") {
-        const oOutroJaAceitou = souOCliente ? prestadorAceitou : clienteAceitou;
+      const res = await api.put('/Chat/room/confirmar', {
+        roomId: Number(roomId),
+        usuarioId: Number(usuarioAtualId)
+      });
 
-        if (connectionRef.current && roomId) {
-          await connectionRef.current.invoke("SendMessage", String(roomId), Number(usuarioAtualId), souOCliente ? "✅ O Cliente aceitou a proposta." : "✅ O Profissional aceitou a proposta.");
-        }
-        if (souOCliente) setClienteAceitou(true); else setPrestadorAceitou(true);
-
-        if (oOutroJaAceitou) {
-          await api.put(`/Chat/post/${postId}/aceitarproposta`, { prestadorId: Number(prestadorSelecionadoId) });
-          if (connectionRef.current && roomId) {
-            await connectionRef.current.invoke("SendMessage", String(roomId), Number(usuarioAtualId), "🚀 Proposta aceita! O status do post agora é: Em Andamento");
-          }
-        } else {
-          isFinalizandoRef.current = false; 
-        }
-      } 
-      else if (statusNegociacao === "Em Andamento") {
-        const oOutroJaConcluiu = souOCliente ? prestadorConcluiu : clienteConcluiu;
-        
-        if (connectionRef.current && roomId) {
-          await connectionRef.current.invoke("SendMessage", String(roomId), Number(usuarioAtualId), souOCliente ? "✅ O Cliente concluiu o serviço." : "✅ O Profissional concluiu o serviço.");
-        }
-        if (souOCliente) setClienteConcluiu(true); else setPrestadorConcluiu(true);
-
-        if (oOutroJaConcluiu) {
-          await api.put(`/Chat/post/${postId}/concluir`);
-          
-          if (connectionRef.current && roomId) {
-            await connectionRef.current.invoke("SendMessage", String(roomId), Number(usuarioAtualId), "🏁 Serviço concluído! O post foi finalizado com sucesso.");
-          }
-          alert("🎉 Serviço concluído com sucesso!");
-          onClose(); 
-        } else {
-          isFinalizandoRef.current = false; 
-        }
+      if (res.data.postStatus === "Concluido") {
+        alert("🎉 Serviço concluído com sucesso!");
+        onClose();
       }
-    } catch (error: any) { 
+    } catch (error: any) {
       console.error("Erro ao dar OK:", error);
-      isFinalizandoRef.current = false; enviouOkRef.current = false;
-      if (error.response?.status === 400) alert("⚠️ Operação inválida para o status atual do post.");
+      if (error.response?.status === 400) alert("⚠️ Operação inválida.");
+    } finally {
+      isFinalizandoRef.current = false;
+      enviouOkRef.current = false;
     }
   };
 
